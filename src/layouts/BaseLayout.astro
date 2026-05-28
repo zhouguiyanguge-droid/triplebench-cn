@@ -1,0 +1,40 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="TripleBench 中文站首页">
+          <span class="brand-mark">TB</span>
+          <span>TripleBench 中文</span>
+        </a>
+        <nav class="nav" aria-label="主导航">
+          <a href="/reports/codex-claude-gemini/">首篇报告</a>
+          <a href="/benchmarks/">基准表</a>
+          <a href="/methodology/">方法论</a>
+        </nav>
+      </header>
+      <slot />
+      <footer class="site-footer">
+        <p>TripleBench 中文站用于沉淀 AI 工具实测、Prompt 包和操作笔记。Ada 是虚拟主理人，所有结论都需要保留原始测试证据。</p>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+[
+  {
+    "tool": "Codex",
+    "coding": 88,
+    "research": 72,
+    "workflow": 82,
+    "costClarity": 70,
+    "bestFor": "本地代码仓库内的实现、验证和交付"
+  },
+  {
+    "tool": "Claude Code",
+    "coding": 84,
+    "research": 76,
+    "workflow": 86,
+    "costClarity": 68,
+    "bestFor": "长会话规划、连续推进和交接文档"
+  },
+  {
+    "tool": "Gemini CLI",
+    "coding": 74,
+    "research": 82,
+    "workflow": 70,
+    "costClarity": 78,
+    "bestFor": "偏研究、广上下文和快速资料整理"
+  }
+]

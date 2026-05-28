@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import benchmarks from "../data/seed-benchmarks.json";
+---
+
+<BaseLayout title="基准表 - TripleBench 中文" description="TripleBench 中文站的 AI 工具种子基准表。">
+  <main class="article">
+    <p class="eyebrow">基准表</p>
+    <h1>第一批种子分数</h1>
+    <p>这些分数用于站点上线和报告结构校准。后续要用真实重复测试替换，并链接原始运行记录。</p>
+    <table class="metric-table">
+      <thead>
+        <tr>
+          <th>工具</th>
+          <th>编码</th>
+          <th>研究</th>
+          <th>连续性</th>
+          <th>成本清晰度</th>
+          <th>适合场景</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          benchmarks.map((item) => (
+            <tr>
+              <td>{item.tool}</td>
+              <td>{item.coding}</td>
+              <td>{item.research}</td>
+              <td>{item.workflow}</td>
+              <td>{item.costClarity}</td>
+              <td>{item.bestFor}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </main>
+</BaseLayout>
