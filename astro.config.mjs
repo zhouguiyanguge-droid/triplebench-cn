@@ -1,6 +1,8 @@
 import { defineConfig } from "astro/config";
+import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://cn.triplebench.com",
-  output: "static"
+  site: "https://triplebench-cn.pages.dev",
+  output: "static",
+  integrations: [sitemap()]
 });
