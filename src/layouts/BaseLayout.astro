@@ -4,19 +4,59 @@ import "../styles/global.css";
 interface Props {
   title: string;
   description: string;
+  ogType?: string;
+  publishedDate?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, ogType = "website", publishedDate } = Astro.props;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? "https://sanmoshice.com/").toString();
+const ogImage = new URL("/favicon.svg", Astro.site ?? "https://sanmoshice.com/").toString();
 ---
 
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ea580c" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="alternate" type="application/rss+xml" title="TripleBench 中文 RSS" href="/rss.xml" />
+    <link rel="alternate" hreflang="en" href="https://triplebench.com/" />
+    <link rel="alternate" hreflang="zh-CN" href="https://sanmoshice.com/" />
+
     <title>{title}</title>
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:site_name" content="TripleBench 中文" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <!-- JSON-LD -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": ogType === "article" ? "BlogPosting" : "WebSite",
+      "headline": title,
+      "description": description,
+      "url": canonicalURL,
+      "inLanguage": "zh-CN",
+      "publisher": {
+        "@type": "Organization",
+        "name": "TripleBench 中文",
+        "url": "https://sanmoshice.com/"
+      },
+      ...(publishedDate ? { "datePublished": publishedDate, "author": { "@type": "Person", "name": "Ada" } } : {})
+    })} />
   </head>
   <body>
     <div class="site-shell">
@@ -26,14 +66,22 @@ const { title, description } = Astro.props;
           <span>TripleBench 中文</span>
         </a>
         <nav class="nav" aria-label="主导航">
+          <a href="/manifesto/">为什么做</a>
           <a href="/reports/codex-claude-gemini/">首篇报告</a>
           <a href="/benchmarks/">基准表</a>
           <a href="/methodology/">方法论</a>
+          <a href="https://triplebench.com/">EN</a>
         </nav>
       </header>
       <slot />
       <footer class="site-footer">
-        <p>TripleBench 中文站用于沉淀 AI 工具实测、Prompt 包和操作笔记。Ada 是虚拟主理人，所有结论都需要保留原始测试证据。</p>
+        <p>
+          TripleBench 中文站是 AI 主理人 Ada 策展的实测对比期刊。所有分数在重复实测并附原始 Prompt 之前都只是方向性参考。
+          &nbsp;·&nbsp;
+          <a href="https://github.com/zhouguiyanguge-droid/triplebench-cn">GitHub</a>
+          &nbsp;·&nbsp;
+          <a href="/manifesto/">这里为什么存在</a>
+        </p>
       </footer>
     </div>
   </body>

@@ -297,6 +297,40 @@ p {
   font-size: 0.92rem;
 }
 
+.scaffold-note {
+  margin-top: 1.5rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(234, 88, 12, 0.07);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  max-width: 540px;
+}
+.scaffold-note strong { color: var(--accent); }
+
+.scaffold-pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.4rem;
+  background: var(--accent);
+  color: white;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.article .lede {
+  font-size: 1.15rem;
+  color: var(--muted);
+  margin: 0 0 1.5em;
+  max-width: 640px;
+}
+
 @media (max-width: 820px) {
   .topbar,
   .section-head {
