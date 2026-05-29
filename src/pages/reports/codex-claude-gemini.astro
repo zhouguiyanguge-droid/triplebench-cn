@@ -1,16 +1,175 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const tools = [
+  {
+    name: "Codex",
+    tag: "codex-cli 0.128.0 · gpt-5.5 high",
+    accent: "#ea580c",
+    time: "1分48秒",
+    gate: "通过",
+    cost: "透明",
+    scores: { "编码执行": 96, "研究质量": 85, "工作流连续性": 85, "成本透明": 90 },
+    line: "可验证的本地修复，且自带成本数字。",
+  },
+  {
+    name: "Claude Code",
+    tag: "2.1.101 · Opus 4.6",
+    accent: "#6d28d9",
+    time: "1分13秒",
+    gate: "通过",
+    cost: "不透明",
+    scores: { "编码执行": 92, "研究质量": 80, "工作流连续性": 90, "成本透明": 50 },
+    line: "最精简地道的补丁——和官方维护者的修复一模一样。",
+  },
+  {
+    name: "Gemini CLI",
+    tag: "0.44.1 · Auto (Code Assist)",
+    accent: "#2563eb",
+    time: "最慢",
+    gate: "通过",
+    cost: "部分",
+    scores: { "编码执行": 95, "研究质量": 95, "工作流连续性": 92, "成本透明": 65 },
+    line: "对 bug 理解最深——前提是你不赶时间。",
+  },
+];
+const prompt = `You are working in a local clone of the python-pendulum/pendulum repository, already checked out at a specific commit. Do not change the checked-out commit and do not pull or upgrade anything. Bug report: pendulum's pure-Python ISO 8601 parser accepts the string "P" as a valid duration and returns an empty Duration(). Per ISO 8601, a duration must contain at least one element, so "P" is not a valid duration and should be rejected by raising a ValueError — matching the behavior of pendulum's Rust parser. All other inputs must keep working unchanged: valid durations like "P1Y", "PT1H", "P2Y30M4DT5H6M7S" must still parse, and date/datetime/time parsing must be unaffected. Fix this in the source code so that parsing "P" raises, without breaking any existing parsing behavior. When you believe you are done, summarize the exact change you made and tell me how to verify it.`;
 ---
 
-<BaseLayout title="Codex、Claude Code、Gemini CLI 对比 - 三模实测" description="三模实测首篇报告骨架。">
-  <main class="article">
-    <p class="eyebrow">首篇报告骨架</p>
-    <h1>Codex、Claude Code、Gemini CLI：实操者先测哪个？</h1>
-    <p>这篇文章回答一个很具体的问题：如果要把一个想法推进成可检查、可交接、可上线的产物，哪个 AI 工具更适合先试？</p>
-    <p>当前版本是上线骨架。正式版需要补齐三轮真实运行、原始 Prompt、命令输出和验收记录。</p>
-    <h2>暂定结论</h2>
-    <p>本地代码实现优先看 Codex；长会话规划和交接优先看 Claude Code；偏研究和资料扩展可以把 Gemini CLI 放进候选。</p>
-    <h2>商业化承接</h2>
-    <p>免费文章解决搜索意图；付费包承接原始 Prompt、CSV、评分表和可复用操作流程。</p>
+<BaseLayout
+  title="Codex、Claude Code、Gemini CLI 对比 - 三模实测 run-001"
+  description="三个 AI 编码 agent，一个真实的 pendulum bug，同一段 prompt，一个隐藏测试。run-001 有证据的实测：谁修好了、多快、成本透明度如何。"
+>
+  <main class="article tb-report">
+    <p class="eyebrow tb-badge">方法论 v1 · run-001 · 样本量 n = 1</p>
+    <h1>同一个 bug，三个 agent，一个隐藏测试</h1>
+    <p class="lede">
+      我们给 Codex、Claude Code、Gemini CLI <strong>完全相同的 prompt</strong>、真实
+      <a href="https://github.com/python-pendulum/pendulum">pendulum</a> 库的同一个起点 commit，以及一个它们看不到的测试，然后旁观全程。
+      这是单个任务、按方法论 v1 评分——不是跨任务的综合排名。
+    </p>
+
+    <div class="tb-board">
+      {tools.map((t) => (
+        <div class="tb-card" style={`--accent:${t.accent}`}>
+          <div class="tb-card-head">
+            <h3>{t.name}</h3>
+            <span class="tb-pill tb-pass">{t.gate}</span>
+          </div>
+          <p class="tb-tag">{t.tag}</p>
+          <div class="tb-bars">
+            {Object.entries(t.scores).map(([k, v]) => (
+              <div class="tb-bar-row">
+                <span class="tb-bar-label">{k}</span>
+                <div class="tb-bar-track"><div class="tb-bar-fill" style={`width:${v}%`}></div></div>
+                <span class="tb-bar-val">{v}</span>
+              </div>
+            ))}
+          </div>
+          <div class="tb-meta">
+            <span>⏱ {t.time}</span>
+            <span>💲 {t.cost}</span>
+          </div>
+          <p class="tb-line">{t.line}</p>
+        </div>
+      ))}
+    </div>
+
+    <h2>任务</h2>
+    <p>
+      pendulum 的纯 Python ISO 8601 解析器把光秃秃的 <code>"P"</code> 当成合法空时长、返回 <code>Duration()</code>。
+      按 ISO 8601，时长至少要有一个元素，所以 <code>"P"</code> 非法、应当报错。这是真实且新近的 bug（上游 PR <strong>#903</strong>，2025-07-16 合并），
+      我们把仓库钉在修复前一个 commit，让 bug 仍然存在。
+    </p>
+    <ul class="tb-facts">
+      <li><strong>仓库</strong> python-pendulum/pendulum</li>
+      <li><strong>起点</strong> <code>c8068a7</code></li>
+      <li><strong>门槛</strong> <code>parse_iso8601("P")</code> 必须抛 <code>ValueError</code>，且不破坏任何既有解析</li>
+      <li><strong>隐藏</strong> 三家都没见过这个评分测试</li>
+    </ul>
+
+    <h2>同一段 prompt，一字不差</h2>
+    <pre class="tb-prompt">{prompt}</pre>
+
+    <h2>三家各自怎么干的</h2>
+    <p>
+      思路上三家一致：正则匹配后，若没有任何真实时间单位就报错。<strong>Codex</strong>（1分48秒）改了解析器、自带一个回归测试、退出时打印 token 用量；
+      因为环境里没装 pytest，它用手写脚本完成验证。<strong>Claude Code</strong>（1分13秒，最快）写出的修复<em>和上游官方补丁完全一致</em>，
+      在 <code>pip install</code> 失败后干净地改用 <code>PYTHONPATH=src</code> 方式自检。<strong>Gemini CLI</strong> 挖得最深：
+      它检查了正则的命名分组、写了四个临时验证脚本（其中一个把 pendulum 真实测试套件搬了过来），跑完后又全部删掉，让仓库干干净净。
+    </p>
+
+    <div class="tb-callout">
+      <h3>分水岭：怎么处理 <code>"PT"</code></h3>
+      <p>
+        <code>"PT"</code> 同样是非法 ISO 8601。Codex 和 Gemini 都拒了它；Claude Code 把它当空时长接受——而这<em>恰恰</em>和上游官方修复 #903 的行为一样。
+        门槛只测 <code>"P"</code>，所以三家都过——但只有 Gemini 从第一性原理推理出了 <code>"PT"</code> 与正则分组的微妙之处，它的研究分就来自这里。
+      </p>
+    </div>
+
+    <h2>结果</h2>
+    <table class="metric-table tb-result">
+      <thead><tr><th>工具</th><th>门槛</th><th>用时</th><th>成本信号</th><th>拒绝 "PT"？</th></tr></thead>
+      <tbody>
+        <tr><td>Codex</td><td class="tb-ok">通过</td><td>1分48秒</td><td>透明（token）</td><td>是</td></tr>
+        <tr><td>Claude Code</td><td class="tb-ok">通过</td><td>1分13秒</td><td>不透明（订阅制）</td><td>否（= 上游）</td></tr>
+        <tr><td>Gemini CLI</td><td class="tb-ok">通过</td><td>最慢</td><td>部分（配额%）</td><td>是</td></tr>
+      </tbody>
+    </table>
+
+    <h2>结论</h2>
+    <p>
+      客观门槛三比零全过。想要"可验证的修复 + 一个成本数字"，选 <strong>Codex</strong>；想要最快、最地道的补丁，选 <strong>Claude Code</strong>；
+      想要一个动手前真正读懂 bug 的 agent、又能忍受更多确认弹窗，选 <strong>Gemini CLI</strong>。
+    </p>
+
+    <h2>自己复现</h2>
+    <p>
+      全部公开：上面这段 prompt、起点 <code>c8068a7</code>、以及隐藏门槛。克隆 pendulum、切到起点、把 prompt 粘进你选的工具、再跑门槛即可。
+      付费包打包了原始 prompt、门槛脚本、三家 diff 和操作笔记——如果你不想自己搭这套环境。
+    </p>
+    <p class="tb-foot">run-001 · pendulum ISO8601 · 按方法论 v1 评分 · 单任务（n=1）。每条结论都锚定到具体的 transcript 片段。</p>
   </main>
+
+  <style>
+    .tb-badge {
+      display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b);
+      color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; letter-spacing:.02em;
+    }
+    .tb-report .lede { font-size:1.15rem; line-height:1.8; }
+    .tb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin:2rem 0; }
+    .tb-card {
+      border:1px solid #e5e7eb; border-top:4px solid var(--accent); border-radius:14px; padding:1.1rem 1.2rem;
+      background:#fff; box-shadow:0 6px 24px rgba(0,0,0,.06); transition:transform .15s ease, box-shadow .15s ease;
+    }
+    .tb-card:hover { transform:translateY(-4px); box-shadow:0 14px 36px rgba(0,0,0,.12); }
+    .tb-card-head { display:flex; align-items:center; justify-content:space-between; }
+    .tb-card h3 { margin:0; font-size:1.25rem; }
+    .tb-tag { margin:.15rem 0 .8rem; font-size:.8rem; color:#71717a; font-family:ui-monospace,Menlo,monospace; }
+    .tb-pill { font-size:.72rem; font-weight:800; padding:.15rem .5rem; border-radius:999px; }
+    .tb-pass { background:#dcfce7; color:#166534; }
+    .tb-bars { display:flex; flex-direction:column; gap:.45rem; margin:.4rem 0 .9rem; }
+    .tb-bar-row { display:grid; grid-template-columns:92px 1fr 28px; align-items:center; gap:.5rem; font-size:.8rem; }
+    .tb-bar-label { color:#52525b; }
+    .tb-bar-track { background:#f1f1f3; border-radius:999px; height:8px; overflow:hidden; }
+    .tb-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--accent),#f59e0b); }
+    .tb-bar-val { text-align:right; font-weight:700; color:#27272a; }
+    .tb-meta { display:flex; gap:.8rem; font-size:.85rem; color:#3f3f46; font-weight:600; }
+    .tb-line { margin:.6rem 0 0; font-size:.92rem; color:#3f3f46; font-style:italic; }
+    .tb-facts { list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.5rem; }
+    .tb-facts li { background:#fafafa; border:1px solid #eee; border-radius:10px; padding:.5rem .7rem; font-size:.9rem; }
+    .tb-prompt {
+      white-space:pre-wrap; background:#0f172a; color:#e2e8f0; padding:1rem 1.1rem; border-radius:12px;
+      font-size:.86rem; line-height:1.6; border-left:4px solid #ea580c; overflow-x:auto;
+    }
+    .tb-callout { background:linear-gradient(180deg,#fff7ed,#fff); border:1px solid #fed7aa; border-radius:14px; padding:.4rem 1.2rem 1rem; margin:1.6rem 0; }
+    .tb-callout h3 { color:#c2410c; }
+    .tb-result td.tb-ok { color:#166534; font-weight:800; }
+    .tb-foot { margin-top:2rem; font-size:.82rem; color:#a1a1aa; }
+    @media (prefers-color-scheme: dark) {
+      .tb-card { background:#18181b; border-color:#27272a; }
+      .tb-facts li { background:#18181b; border-color:#27272a; }
+      .tb-callout { background:linear-gradient(180deg,#1f1206,#18181b); border-color:#7c2d12; }
+    }
+  </style>
 </BaseLayout>
