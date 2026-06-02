@@ -1,0 +1,136 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const blockers = [
+  {
+    n: "01",
+    accent: "#dc2626",
+    title: "画面过不了「真实感」这关",
+    body: "我们要的是便利店监控 / 手机偷拍那种粗糙真实感——冷白灯、压缩噪点、竖拍抖动。但图生视频出来的东西，要么太「AI 炫技 / 广告棚」，要么角色脸不稳。photoreal 真实感一直过不了我们自己定的 believability ≥ 7.5；角色跨镜头总漂。",
+  },
+  {
+    n: "02",
+    accent: "#6d28d9",
+    title: "AI agent 陷入「过度工程化空转」",
+    body: "因为门禁卡在「素材没到位」，协作的 AI 每天能做的就只剩只读巡检 + 写反思：watchlist → delta → streak → trend → scaffold → sync 六步，循环记账。于是它不停造工具——landing 巡检、跨天 trend、path regression verifier、各种 readiness 复核脚本。每一步看起来都合理，合起来就是原地踏步。",
+  },
+];
+const questions = [
+  "图生视频的「监控 / 偷拍真实感」到底怎么稳定做出来？是 prompt、选错了模型，还是得后期加噪点 / 降质 / 抖动？",
+  "跨 16 个镜头的角色一致性，2026 年现在最靠谱的做法是什么？Kling 的角色参考够吗，还是得训 LoRA / 用别的方案？",
+  "最想听的：你们用 Codex / Claude Code / Cursor 做长链条任务时，怎么防止它陷入「只造流程不产出」？",
+];
+---
+
+<BaseLayout
+  title="公开求助：一条卡了20天的 AI 短片生产线 - 三模实测"
+  description="我们用 Codex + Claude Code 搭了一条 AI 仿真实拍短片生产线。框架不差，但卡了快20天：画面过不了真实感，agent 还造了 437 个脚本却一条成片没出。这是一篇开放建造日志和求助帖。"
+>
+  <main class="article tb-report">
+    <p class="eyebrow tb-badge">开放建造日志 · 求指点</p>
+    <h1>我们用 Codex + Claude Code 搭了一条 AI 短片生产线 —— 卡了快 20 天没出片</h1>
+    <p class="lede">
+      这是求指点，不是教程。真实项目、真实卡点、真实数据，全部公开。
+      如果你真懂图生视频的真实感、或 AI agent 的长链条工作流，欢迎来拍我们肩膀。
+    </p>
+
+    <div class="tb-hero">
+      <div class="tb-hero-cell tb-bad">
+        <div class="tb-big">437</div>
+        <div class="tb-cap">agent 造的 Python 脚本</div>
+      </div>
+      <div class="tb-hero-vs">vs</div>
+      <div class="tb-hero-cell">
+        <div class="tb-big">0</div>
+        <div class="tb-cap">出片数量</div>
+      </div>
+    </div>
+    <p class="tb-hero-note">20 天，卡在同一个地方。这次踩坑的是我们自己。</p>
+
+    <h2>我们在做什么</h2>
+    <p>
+      想用 AI 把一条仿真实拍短片生产线做到尽量自动化。第一部片子是个伪纪录片：<em>《凌晨 2:17，店里多了一个不存在的员工》</em>——
+      用监控、手机偷拍、聊天记录，讲一个小店老板发现自家账号里有个虚构 AI 员工「小夏」在深夜替他回差评、重剪短视频、把账号救活。
+      原创虚拟角色，不用真人脸、不换脸。规格：110–130 秒、9:16、16 个 5–9 秒镜头，每 8–12 秒一次反转，前 3 秒必须让人停住。
+    </p>
+
+    <h2>我们的框架（这部分其实做得不差）</h2>
+    <p>整条线是 <strong>Codex + Claude Code 协作</strong>搭的，分阶段：</p>
+    <pre class="tb-flow">脚本 → 分镜+生成提示词 → 角色定妆 → 图生视频(16镜头) → 声音 → 剪辑 → 平台测试</pre>
+    <ul class="tb-facts">
+      <li><strong>Kling</strong> —— 角色一致性、中文口型、多镜头</li>
+      <li><strong>Runway Gen-4</strong> —— 真实感动作、手机/监控质感</li>
+      <li><strong>HyperFrames / Remotion</strong> —— 字幕、UI 证据、合成</li>
+      <li><strong>自研 Python</strong> —— 资产验收、readiness 门禁、外部模型评审环</li>
+    </ul>
+    <p>
+      我们甚至给它定了<strong>硬验收线</strong>（防止自己骗自己）：一套 <code>pipeline:gate</code>，只有 <code>render_allowed=true</code> 才准渲染；
+      一份发给 Grok/Gemini/Claude 的统一评审量表（首3秒留存、事件驱动、真实感…），<code>overall &lt; 7.6</code> 不准进平台测试；
+      还卡了「技术合格 ≠ 内容合格」。这套流程纪律，老实说比大部分玩 AI 视频的人都狠。
+    </p>
+
+    <h2>然后我们卡住了 —— 两个层面</h2>
+    <div class="tb-board">
+      {blockers.map((b) => (
+        <div class="tb-card" style={`--accent:${b.accent}`}>
+          <div class="tb-card-head"><span class="tb-num">{b.n}</span><h3>{b.title}</h3></div>
+          <p>{b.body}</p>
+        </div>
+      ))}
+    </div>
+    <div class="tb-callout">
+      <h3>一个数字说明一切</h3>
+      <p>我们这条还没产出 1 条成片的视频线，<code>tools/</code> 目录里已经躺了 <strong>437 个 Python 脚本</strong>。agent 太擅长「把流程搭得更严密」了，严密到忘了最初的目标是出片。</p>
+    </div>
+
+    <h2>想请高手指点的几个问题</h2>
+    <ol class="tb-q">
+      {questions.map((q) => (<li>{q}</li>))}
+    </ol>
+
+    <h2>我们已经试过什么（不是伸手党）</h2>
+    <ul>
+      <li>堆 negative prompt（cartoon / sci-fi / beauty filter / distorted face…）压「AI 味」</li>
+      <li>搭外部模型评审环、定量表、卡硬门槛</li>
+      <li>拆成「先定妆图 → 再图生视频 → 每镜头只一个动作」降复杂度</li>
+      <li>给 agent 加了一堆 fail-close 门禁 —— 结果反而喂出了「空转造工具」这个新问题</li>
+    </ul>
+
+    <h2>联系 / 围观</h2>
+    <p>
+      完整前期包、分镜提示词、评审量表、那 437 个脚本的目录结构，我们都可以开放给认真想交流的人。
+      这是「AI 工具避坑实验室」的真实一期——这次踩坑的是我们自己。
+    </p>
+    <p class="tb-foot">开放建造日志 · 原样发布 · 我们脱困后会更新这一页。</p>
+  </main>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    .tb-report .lede { font-size:1.15rem; line-height:1.8; }
+    .tb-hero { display:flex; align-items:center; justify-content:center; gap:1.5rem; margin:2rem 0 .5rem; }
+    .tb-hero-cell { flex:1; max-width:240px; border:3px solid #d4d4d8; border-radius:16px; padding:1.4rem 1rem; text-align:center; }
+    .tb-hero-cell.tb-bad { border-color:#dc2626; }
+    .tb-big { font-size:5rem; font-weight:800; line-height:1; color:#27272a; }
+    .tb-bad .tb-big { color:#dc2626; }
+    .tb-cap { margin-top:.5rem; font-size:.95rem; color:#52525b; }
+    .tb-hero-vs { font-size:1.5rem; font-weight:700; color:#a1a1aa; }
+    .tb-hero-note { text-align:center; color:#71717a; font-style:italic; margin-top:0; }
+    .tb-flow { background:#0f172a; color:#e2e8f0; padding:1rem 1.1rem; border-radius:12px; border-left:4px solid #ea580c; overflow-x:auto; font-size:.9rem; }
+    .tb-facts { list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.5rem; }
+    .tb-facts li { background:#fafafa; border:1px solid #eee; border-radius:10px; padding:.55rem .8rem; font-size:.92rem; }
+    .tb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin:1.5rem 0; }
+    .tb-card { border:1px solid #e5e7eb; border-top:4px solid var(--accent); border-radius:14px; padding:1.1rem 1.2rem; background:#fff; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+    .tb-card-head { display:flex; align-items:baseline; gap:.6rem; }
+    .tb-num { font-weight:800; color:var(--accent); font-size:1.1rem; }
+    .tb-card h3 { margin:.2rem 0 .5rem; font-size:1.15rem; }
+    .tb-callout { background:linear-gradient(180deg,#fff7ed,#fff); border:1px solid #fed7aa; border-radius:14px; padding:.4rem 1.2rem 1rem; margin:1.6rem 0; }
+    .tb-callout h3 { color:#c2410c; }
+    .tb-q { line-height:1.8; }
+    .tb-q li { margin-bottom:.6rem; }
+    .tb-foot { margin-top:2rem; font-size:.82rem; color:#a1a1aa; }
+    @media (prefers-color-scheme: dark) {
+      .tb-card, .tb-facts li { background:#18181b; border-color:#27272a; }
+      .tb-callout { background:linear-gradient(180deg,#1f1206,#18181b); border-color:#7c2d12; }
+    }
+  </style>
+</BaseLayout>
