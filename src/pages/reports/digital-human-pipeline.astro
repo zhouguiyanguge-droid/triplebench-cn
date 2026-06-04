@@ -1,0 +1,125 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const stages = [
+  {
+    n: "1",
+    accent: "#ea580c",
+    title: "脚本 / 选题",
+    pick: "LLM 批量产脚本（Claude / GPT / Gemini）",
+    cand: "现成口播脚本模板、热点选题库；我们想要的是「事件驱动」而不是 PPT 念稿。",
+  },
+  {
+    n: "2",
+    accent: "#6d28d9",
+    title: "数字人形象 / 口型",
+    pick: "HeyGen / Synthesia（稳）· Hedra（口型评测 9/10）· D-ID（API 最便宜）",
+    cand: "Kling 3.0（角色解剖学一致）、DeepBrain、Colossyan（免费额度大）、Elai（克隆自己）。卡点：中文口型 + 形象稳定 + 不要塑料感。",
+  },
+  {
+    n: "3",
+    accent: "#2563eb",
+    title: "声音 / TTS / 克隆",
+    pick: "商用：ElevenLabs；开源：Coqui XTTS v2（多语言、可本地）",
+    cand: "Resemble、各家自带 TTS。卡点：中文自然度 + 情绪 + 和口型对齐。",
+  },
+  {
+    n: "4",
+    accent: "#16a34a",
+    title: "B-roll / 画面素材",
+    pick: "图生视频补镜头（Kling / Runway / Veo）",
+    cand: "库存素材 + 截屏 + 真实拍摄混剪。卡点：和数字人主体风格统一。",
+  },
+  {
+    n: "5",
+    accent: "#dc2626",
+    title: "剪辑 / 合成 / 字幕",
+    pick: "Remotion（代码化）/ 剪映 / CapCut · 自动字幕",
+    cand: "FFmpeg 脚本化批处理。卡点：节奏（每 8–12 秒一个点）+ 字幕样式统一。",
+  },
+  {
+    n: "6",
+    accent: "#9333ea",
+    title: "编排 / 自动化",
+    pick: "n8n 串全流程（脚本→TTS→数字人→剪辑→发布）",
+    cand: "自研 Python pipeline + 队列。卡点：哪一环必须留人工、哪一环能全自动。",
+  },
+];
+const questions = [
+  "如果目标是「全自动、可日更、中文、能过平台」，6 个环节你会各选什么？哪个组合性价比最高？",
+  "中文口型 + 声音情绪，2026 年现在哪套最自然？HeyGen 中文够吗，还是 Kling/Hedra + ElevenLabs 更好？",
+  "哪些环节一定要留人工卡口（不然质量崩），哪些可以放心全自动？",
+  "成本怎么压？商用 SaaS 按条烧钱 vs 开源自建（XTTS / 本地模型）省钱但要运维，临界点在哪？",
+];
+---
+
+<BaseLayout
+  title="求教：AI 数字人短视频全自动生产线，什么工具组合最完美？- 三模实测"
+  description="把数字人短视频生产线拆成 6 个环节，每环列出 2026 年主流工具候选和我们的取舍，然后请懂的人补刀：到底什么组合能做到全自动、可日更、中文、能过平台。"
+>
+  <main class="article tb-report">
+    <p class="eyebrow tb-badge">开放求教 · 工具选型</p>
+    <h1>AI 数字人短视频「全自动生产线」，到底什么工具组合最完美？</h1>
+    <p class="lede">
+      我们把这条生产线拆成 6 个环节，每环列出 2026 年的主流候选和我们目前的取舍。
+      不是「求大佬告诉我用啥」，而是把认知摆出来，请真正跑通过全自动数字人线的人补刀。目标：<strong>全自动、可日更、中文、能过平台</strong>。
+    </p>
+
+    <h2>6 个环节 · 工具候选与取舍</h2>
+    <div class="tb-board">
+      {stages.map((s) => (
+        <div class="tb-card" style={`--accent:${s.accent}`}>
+          <div class="tb-card-head"><span class="tb-num">{s.n}</span><h3>{s.title}</h3></div>
+          <p class="tb-pick"><strong>我们倾向：</strong>{s.pick}</p>
+          <p class="tb-cand">{s.cand}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="tb-callout">
+      <h3>为什么公开问</h3>
+      <p>数字人这条赛道工具太多、迭代太快，单独看每个工具的评测没用——真正难的是<strong>「组合」</strong>：哪几个拼起来能端到端跑通、又便宜又能日更。我们宁可公开认知、被人挑错，也不想闷头试错烧钱。</p>
+    </div>
+
+    <h2>想请高手补刀的 4 个问题</h2>
+    <ol class="tb-q">
+      {questions.map((q) => (<li>{q}</li>))}
+    </ol>
+
+    <h2>我们的约束（背景）</h2>
+    <ul>
+      <li>中文内容，目标平台：抖音 / 小红书 / 视频号 / YouTube Shorts</li>
+      <li>要能「日更」——所以单条成本和人工介入越低越好</li>
+      <li>不用真人脸、不换脸；数字人是原创虚拟形象</li>
+      <li>有本地算力（NAS / 自己的机器）可以挂开源方案，不是只能用 SaaS</li>
+    </ul>
+
+    <h2>回应方式</h2>
+    <p>
+      如果你真跑通过全自动数字人线——无论是 SaaS 组合还是开源自建——欢迎来拍砖、丢你的工具栈。
+      我们会把收到的方案整理成一篇公开的「数字人生产线选型对照」，注明来源。这是「AI 工具避坑实验室」的选型公开课。
+    </p>
+    <p class="tb-foot">开放求教 · 工具栈持续更新 · 我们会把可行方案整理回这一页。</p>
+  </main>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    .tb-report .lede { font-size:1.15rem; line-height:1.8; }
+    .tb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1rem; margin:1.5rem 0; }
+    .tb-card { border:1px solid #e5e7eb; border-top:4px solid var(--accent); border-radius:14px; padding:1.1rem 1.2rem; background:#fff; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+    .tb-card-head { display:flex; align-items:baseline; gap:.6rem; }
+    .tb-num { font-weight:800; color:var(--accent); font-size:1.3rem; }
+    .tb-card h3 { margin:.2rem 0 .5rem; font-size:1.2rem; }
+    .tb-pick { font-size:.95rem; margin:.3rem 0; }
+    .tb-cand { font-size:.9rem; color:#52525b; margin:.3rem 0 0; }
+    .tb-callout { background:linear-gradient(180deg,#fff7ed,#fff); border:1px solid #fed7aa; border-radius:14px; padding:.4rem 1.2rem 1rem; margin:1.6rem 0; }
+    .tb-callout h3 { color:#c2410c; }
+    .tb-q { line-height:1.8; }
+    .tb-q li { margin-bottom:.6rem; }
+    .tb-foot { margin-top:2rem; font-size:.82rem; color:#a1a1aa; }
+    @media (prefers-color-scheme: dark) {
+      .tb-card { background:#18181b; border-color:#27272a; }
+      .tb-callout { background:linear-gradient(180deg,#1f1206,#18181b); border-color:#7c2d12; }
+    }
+  </style>
+</BaseLayout>
