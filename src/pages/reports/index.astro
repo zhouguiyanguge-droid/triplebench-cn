@@ -1,0 +1,82 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const posts = [
+  {
+    href: "/reports/digital-human-pipeline/",
+    tag: "开放求教",
+    accent: "#9333ea",
+    title: "AI 数字人短视频全自动生产线，什么工具组合最完美？",
+    desc: "把生产线拆成 6 个环节，每环列出 2026 主流候选和我们的取舍，再抛 4 个真问题，请跑通过的人补刀。",
+    date: "2026-06",
+  },
+  {
+    href: "/reports/ai-video-pipeline/",
+    tag: "开放建造日志",
+    accent: "#dc2626",
+    title: "我们用 Codex + Claude Code 搭 AI 短片线，卡了 20 天没出片",
+    desc: "一条还没出片的生产线，工具目录里却躺了 437 个脚本。AI 怎么把自己「过度工程化」到瘫痪——以及我们卡在哪、求什么。",
+    date: "2026-06",
+  },
+  {
+    href: "/reports/codex-claude-gemini/",
+    tag: "实测 · run-001",
+    accent: "#ea580c",
+    title: "同一个 bug，三个 AI，一个隐藏测试",
+    desc: "Codex、Claude Code、Gemini CLI 在同一段指令 + 隐藏门槛下修同一个真实 bug。三家都过——差别全藏在细节里。",
+    date: "2026-05",
+  },
+];
+---
+
+<BaseLayout
+  title="全部文章 - 三模实测"
+  description="三模实测的全部报告与开放建造日志：AI 工具真实横测 + 真实项目踩坑日志，全部附公开证据。"
+>
+  <main class="article tb-index">
+    <p class="eyebrow tb-badge">全部文章</p>
+    <h1>我们发布过的全部内容</h1>
+    <p class="lede">
+      AI 工具真实横测 + 开放建造日志——每篇都附完整指令、证据和一个诚实的结论。最新在前。
+    </p>
+
+    <div class="tb-list">
+      {posts.map((p) => (
+        <a class="tb-row" href={p.href} style={`--accent:${p.accent}`}>
+          <div class="tb-row-top">
+            <span class="tb-chip">{p.tag}</span>
+            <span class="tb-date">{p.date}</span>
+          </div>
+          <h2>{p.title}</h2>
+          <p>{p.desc}</p>
+          <span class="tb-go">阅读 →</span>
+        </a>
+      ))}
+    </div>
+
+    <p class="tb-foot">每跑一篇新报告就会出现在这里。不认同某个结论？欢迎来 GitHub 提 issue。</p>
+  </main>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    .tb-list { display:flex; flex-direction:column; gap:1rem; margin:2rem 0; }
+    .tb-row {
+      display:block; text-decoration:none; color:inherit;
+      border:1px solid #e5e7eb; border-left:5px solid var(--accent); border-radius:14px;
+      padding:1.2rem 1.4rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05);
+      transition:transform .15s ease, box-shadow .15s ease;
+    }
+    .tb-row:hover { transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,.1); }
+    .tb-row-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; }
+    .tb-chip { font-size:.72rem; font-weight:800; color:#fff; background:var(--accent); padding:.18rem .6rem; border-radius:999px; }
+    .tb-date { font-size:.82rem; color:#a1a1aa; }
+    .tb-row h2 { font-size:1.25rem !important; margin:.2rem 0 .4rem; line-height:1.4; }
+    .tb-row p { color:#52525b; margin:0; font-size:.95rem; line-height:1.7; }
+    .tb-go { display:inline-block; margin-top:.7rem; color:var(--accent); font-weight:700; font-size:.9rem; }
+    .tb-foot { margin-top:1.5rem; font-size:.82rem; color:#a1a1aa; }
+    @media (prefers-color-scheme: dark) {
+      .tb-row { background:#18181b; border-color:#27272a; }
+      .tb-row p { color:#a1a1aa; }
+    }
+  </style>
+</BaseLayout>
