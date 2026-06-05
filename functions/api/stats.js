@@ -1,5 +1,6 @@
 // Server-side analytics proxy. Token stays in env (Pages secret), never reaches the browser.
 // Queries Cloudflare Web Analytics (RUM) GraphQL and returns compact JSON.
+const VERSION = "v2-20260606";
 const ACCOUNT_TAG = "5aeb1932ab22e08c6587ce04c186127d";
 const DEFAULT_SITE_TAG = "aef5c25ae6974caa85fa9bba93e975ff"; // sanmoshice.com
 
@@ -14,7 +15,7 @@ export async function onRequest(context) {
   const { env } = context;
   const token = env.CF_ANALYTICS_TOKEN;
   const siteTag = env.CF_SITE_TAG || DEFAULT_SITE_TAG;
-  if (!token) return j({ ok: false, error: "no_token", message: "CF_ANALYTICS_TOKEN 未配置" });
+  if (!token) return j({ ok: false, error: "no_token", message: "CF_ANALYTICS_TOKEN 未配置", version: VERSION, envKeys: Object.keys(env || {}) });
 
   const days = 7;
   const now = new Date();
