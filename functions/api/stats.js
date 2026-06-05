@@ -15,7 +15,7 @@ export async function onRequest(context) {
   const { env } = context;
   const token = env.CF_ANALYTICS_TOKEN;
   const siteTag = env.CF_SITE_TAG || DEFAULT_SITE_TAG;
-  if (!token) return j({ ok: false, error: "no_token", message: "CF_ANALYTICS_TOKEN 未配置", version: VERSION, envKeys: Object.keys(env || {}) });
+  if (!token) return j({ ok: false, error: "no_token", message: "CF_ANALYTICS_TOKEN 未配置", version: VERSION });
 
   const days = 7;
   const now = new Date();
