@@ -1,59 +1,118 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-
 const acct = "5aeb1932ab22e08c6587ce04c186127d";
 const base = `https://dash.cloudflare.com/${acct}/web-analytics/overview`;
 const sanmoTag = "aef5c25ae6974caa85fa9bba93e975ff";
 ---
 
-<BaseLayout
-  title="数据 - 三模实测（私有）"
-  description="私有数据快捷入口。"
->
+<BaseLayout title="数据 - 三模实测（私有）" description="私有实时数据看板。">
   <main class="article tb-report">
     <p class="eyebrow tb-badge">私有 · 仅站长可用</p>
-    <h1>数据快捷入口</h1>
-    <p class="lede">
-      两个站的访问数据看板快捷链接。需要登录 Cloudflare 账号才能看到数据。本页不在导航里，只有知道网址的人能进。
-    </p>
+    <h1>实时数据看板</h1>
+    <p class="lede">sanmoshice.com 近 7 天访问数据，打开即从 Cloudflare 实时拉取。本页不在导航里。</p>
 
-    <div class="tb-stats">
-      <a class="tb-stat" style="--accent:#ea580c" href={`${base}?siteTag~in=${sanmoTag}&excludeBots=Yes`} target="_blank" rel="noopener">
-        <h3>sanmoshice.com（中文站）</h3>
-        <p>页面浏览 / 访客 / 热门文章 / 来源国家</p>
-        <span class="tb-go">打开数据看板 →</span>
-      </a>
-      <a class="tb-stat" style="--accent:#2563eb" href={`${base}`} target="_blank" rel="noopener">
-        <h3>triplebench.com（英文站）</h3>
-        <p>页面浏览 / 访客 / 热门文章 / 来源国家</p>
-        <span class="tb-go">打开数据看板 →</span>
-      </a>
-      <a class="tb-stat" style="--accent:#16a34a" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener">
-        <h3>全部站点总览</h3>
-        <p>Cloudflare Web Analytics 主页（两个站都在）</p>
-        <span class="tb-go">打开 →</span>
-      </a>
-      <a class="tb-stat" style="--accent:#9333ea" href="https://search.google.com/search-console" target="_blank" rel="noopener">
-        <h3>Google Search Console</h3>
-        <p>搜索曝光 / 点击 / 收录状态（收录后才有数据）</p>
-        <span class="tb-go">打开 GSC →</span>
-      </a>
+    <div id="tb-loading" class="tb-note">正在加载实时数据…</div>
+
+    <div id="tb-setup" class="tb-setup" style="display:none">
+      <h3>还差一步：配置只读数据 Token</h3>
+      <p>数据需要一个 <b>只读</b> Cloudflare API Token 才能读取（存在服务器端，不会暴露给访客）。配好后这页自动出图表。</p>
+      <ol>
+        <li>Cloudflare → 我的个人资料 → API 令牌 → 创建令牌 → 自定义令牌</li>
+        <li>权限选 <b>账户 · Account Analytics · 读取</b>，账户资源选你的账户</li>
+        <li>生成后，去 Pages 项目 → Settings → Environment variables，加密钥 <code>CF_ANALYTICS_TOKEN</code> = 该 token，重新部署</li>
+      </ol>
+      <p class="tb-err" id="tb-errmsg"></p>
     </div>
 
-    <p class="tb-foot">
-      提示：这些看板需要登录对应账号才能看到数据，仅你本人可用。Web Analytics 数字是去重后的真实访问，比平台后台更准。
-    </p>
+    <div id="tb-kpis" class="tb-kpis" style="display:none">
+      <div class="tb-kpi"><span class="tb-k">近 7 天页面浏览</span><span class="tb-v" id="kpi-pv">–</span></div>
+      <div class="tb-kpi"><span class="tb-k">近 7 天访问次数</span><span class="tb-v" id="kpi-visits">–</span></div>
+      <div class="tb-kpi"><span class="tb-k">数据区间</span><span class="tb-v tb-sm" id="kpi-range">–</span></div>
+    </div>
+
+    <div id="tb-charts" style="display:none">
+      <div class="tb-card"><h3>每日页面浏览</h3><canvas id="c-daily" height="120"></canvas></div>
+      <div class="tb-two">
+        <div class="tb-card"><h3>热门页面 Top 10</h3><canvas id="c-pages" height="220"></canvas></div>
+        <div class="tb-card"><h3>来源国家 Top 10</h3><canvas id="c-countries" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <details class="tb-shortcuts">
+      <summary>官方看板快捷入口（需登录 Cloudflare）</summary>
+      <div class="tb-stats">
+        <a class="tb-stat" style="--accent:#ea580c" href={`${base}?siteTag~in=${sanmoTag}&excludeBots=Yes`} target="_blank" rel="noopener"><h4>sanmoshice.com 看板</h4><span class="tb-go">打开 →</span></a>
+        <a class="tb-stat" style="--accent:#2563eb" href={`${base}`} target="_blank" rel="noopener"><h4>triplebench.com 看板</h4><span class="tb-go">打开 →</span></a>
+        <a class="tb-stat" style="--accent:#9333ea" href="https://search.google.com/search-console" target="_blank" rel="noopener"><h4>Google Search Console</h4><span class="tb-go">打开 →</span></a>
+      </div>
+    </details>
   </main>
+
+  <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script is:inline>
+    const fmt = (n) => (n ?? 0).toLocaleString();
+    const ACC = "#ea580c";
+    async function load() {
+      let d;
+      try { d = await (await fetch("/api/stats", { cache: "no-store" })).json(); }
+      catch (e) { return fail("请求失败：" + e); }
+      document.getElementById("tb-loading").style.display = "none";
+      if (!d.ok) return fail(d.message || d.error || "未知错误", d.error);
+      document.getElementById("tb-kpis").style.display = "grid";
+      document.getElementById("tb-charts").style.display = "block";
+      document.getElementById("kpi-pv").textContent = fmt(d.totalPV);
+      document.getElementById("kpi-visits").textContent = fmt(d.totalVisits);
+      document.getElementById("kpi-range").textContent = d.range.start + " ~ " + d.range.end;
+      const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+      const grid = dark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.06)";
+      const tick = dark ? "#a1a1aa" : "#52525b";
+      Chart.defaults.color = tick; Chart.defaults.font.family = "system-ui,sans-serif";
+      new Chart(document.getElementById("c-daily"), { type: "line",
+        data: { labels: d.daily.map(x => x.date.slice(5)), datasets: [{ label: "PV", data: d.daily.map(x => x.pv), borderColor: ACC, backgroundColor: "rgba(234,88,12,.15)", fill: true, tension: .3, pointRadius: 3 }] },
+        options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: grid } }, y: { grid: { color: grid }, beginAtZero: true } } } });
+      const short = (p) => p && p.length > 26 ? p.slice(0, 24) + "…" : (p || "/");
+      new Chart(document.getElementById("c-pages"), { type: "bar",
+        data: { labels: d.pages.map(x => short(x.path)), datasets: [{ data: d.pages.map(x => x.pv), backgroundColor: ACC }] },
+        options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { grid: { color: grid }, beginAtZero: true }, y: { grid: { display: false } } } } });
+      new Chart(document.getElementById("c-countries"), { type: "bar",
+        data: { labels: d.countries.map(x => x.country || "未知"), datasets: [{ data: d.countries.map(x => x.pv), backgroundColor: "#2563eb" }] },
+        options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { grid: { color: grid }, beginAtZero: true }, y: { grid: { display: false } } } } });
+    }
+    function fail(msg, code) {
+      document.getElementById("tb-loading").style.display = "none";
+      document.getElementById("tb-setup").style.display = "block";
+      if (code && code !== "no_token") document.getElementById("tb-errmsg").textContent = "返回信息：" + msg;
+    }
+    load();
+  </script>
 
   <style>
     .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
-    .tb-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin:2rem 0; }
-    .tb-stat { display:block; text-decoration:none; color:inherit; border:1px solid #e5e7eb; border-left:5px solid var(--accent); border-radius:14px; padding:1.2rem 1.4rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); transition:transform .15s ease, box-shadow .15s ease; }
-    .tb-stat:hover { transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,.1); }
-    .tb-stat h3 { margin:0 0 .4rem; font-size:1.15rem; }
-    .tb-stat p { margin:0; color:#52525b; font-size:.92rem; }
-    .tb-go { display:inline-block; margin-top:.7rem; color:var(--accent); font-weight:700; font-size:.9rem; }
-    .tb-foot { margin-top:1.5rem; font-size:.82rem; color:#a1a1aa; }
-    @media (prefers-color-scheme: dark) { .tb-stat { background:#18181b; border-color:#27272a; } .tb-stat p { color:#a1a1aa; } }
+    .tb-note { margin:1.5rem 0; color:#a1a1aa; }
+    .tb-setup { margin:1.5rem 0; padding:1.2rem 1.4rem; border:1px solid #fed7aa; background:#fff7ed; border-radius:14px; }
+    .tb-setup h3 { margin:0 0 .5rem; }
+    .tb-setup ol { margin:.5rem 0 0; padding-left:1.2rem; line-height:1.9; }
+    .tb-setup code { background:#fde68a; padding:.1rem .35rem; border-radius:5px; }
+    .tb-err { color:#b91c1c; font-size:.85rem; margin-top:.6rem; }
+    .tb-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin:1.5rem 0; }
+    .tb-kpi { border:1px solid #e5e7eb; border-radius:14px; padding:1.1rem 1.3rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); display:flex; flex-direction:column; gap:.3rem; }
+    .tb-k { color:#71717a; font-size:.85rem; }
+    .tb-v { font-size:2rem; font-weight:800; color:#ea580c; }
+    .tb-v.tb-sm { font-size:1rem; font-weight:600; color:#3f3f46; }
+    .tb-card { border:1px solid #e5e7eb; border-radius:14px; padding:1.2rem 1.4rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); margin:1rem 0; }
+    .tb-card h3 { margin:0 0 .8rem; font-size:1.05rem; }
+    .tb-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1rem; }
+    .tb-shortcuts { margin:2rem 0 1rem; }
+    .tb-shortcuts summary { cursor:pointer; color:#71717a; font-size:.9rem; }
+    .tb-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.8rem; margin:1rem 0; }
+    .tb-stat { display:flex; justify-content:space-between; align-items:center; text-decoration:none; color:inherit; border:1px solid #e5e7eb; border-left:5px solid var(--accent); border-radius:12px; padding:.9rem 1.1rem; background:#fff; }
+    .tb-stat h4 { margin:0; font-size:.95rem; }
+    .tb-go { color:var(--accent); font-weight:700; font-size:.85rem; }
+    @media (prefers-color-scheme: dark) {
+      .tb-kpi,.tb-card,.tb-stat { background:#18181b; border-color:#27272a; }
+      .tb-setup { background:#1c1917; border-color:#7c2d12; }
+      .tb-setup code { background:#78350f; color:#fde68a; }
+      .tb-v.tb-sm { color:#e4e4e7; }
+    }
   </style>
 </BaseLayout>
