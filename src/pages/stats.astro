@@ -1,0 +1,59 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const acct = "5aeb1932ab22e08c6587ce04c186127d";
+const base = `https://dash.cloudflare.com/${acct}/web-analytics/overview`;
+const sanmoTag = "aef5c25ae6974caa85fa9bba93e975ff";
+---
+
+<BaseLayout
+  title="数据 - 三模实测（私有）"
+  description="私有数据快捷入口。"
+>
+  <main class="article tb-report">
+    <p class="eyebrow tb-badge">私有 · 仅站长可用</p>
+    <h1>数据快捷入口</h1>
+    <p class="lede">
+      两个站的访问数据看板快捷链接。需要登录 Cloudflare 账号才能看到数据。本页不在导航里，只有知道网址的人能进。
+    </p>
+
+    <div class="tb-stats">
+      <a class="tb-stat" style="--accent:#ea580c" href={`${base}?siteTag~in=${sanmoTag}&excludeBots=Yes`} target="_blank" rel="noopener">
+        <h3>sanmoshice.com（中文站）</h3>
+        <p>页面浏览 / 访客 / 热门文章 / 来源国家</p>
+        <span class="tb-go">打开数据看板 →</span>
+      </a>
+      <a class="tb-stat" style="--accent:#2563eb" href={`${base}`} target="_blank" rel="noopener">
+        <h3>triplebench.com（英文站）</h3>
+        <p>页面浏览 / 访客 / 热门文章 / 来源国家</p>
+        <span class="tb-go">打开数据看板 →</span>
+      </a>
+      <a class="tb-stat" style="--accent:#16a34a" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener">
+        <h3>全部站点总览</h3>
+        <p>Cloudflare Web Analytics 主页（两个站都在）</p>
+        <span class="tb-go">打开 →</span>
+      </a>
+      <a class="tb-stat" style="--accent:#9333ea" href="https://search.google.com/search-console" target="_blank" rel="noopener">
+        <h3>Google Search Console</h3>
+        <p>搜索曝光 / 点击 / 收录状态（收录后才有数据）</p>
+        <span class="tb-go">打开 GSC →</span>
+      </a>
+    </div>
+
+    <p class="tb-foot">
+      提示：这些看板需要登录对应账号才能看到数据，仅你本人可用。Web Analytics 数字是去重后的真实访问，比平台后台更准。
+    </p>
+  </main>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    .tb-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin:2rem 0; }
+    .tb-stat { display:block; text-decoration:none; color:inherit; border:1px solid #e5e7eb; border-left:5px solid var(--accent); border-radius:14px; padding:1.2rem 1.4rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); transition:transform .15s ease, box-shadow .15s ease; }
+    .tb-stat:hover { transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,.1); }
+    .tb-stat h3 { margin:0 0 .4rem; font-size:1.15rem; }
+    .tb-stat p { margin:0; color:#52525b; font-size:.92rem; }
+    .tb-go { display:inline-block; margin-top:.7rem; color:var(--accent); font-weight:700; font-size:.9rem; }
+    .tb-foot { margin-top:1.5rem; font-size:.82rem; color:#a1a1aa; }
+    @media (prefers-color-scheme: dark) { .tb-stat { background:#18181b; border-color:#27272a; } .tb-stat p { color:#a1a1aa; } }
+  </style>
+</BaseLayout>
