@@ -36,16 +36,16 @@ const agents = [
 ---
 
 <BaseLayout
-  title="三个 AI 都说修好了，我只敢直接用一个 - 三模实测 run-002"
+  title="同一个隐形字符 bug，三个 AI 都修对了，差在 diff 谁更干净 - 三模实测 run-002"
   description="一个看不见的字符让程序读不到配置。Codex、Claude Code、Gemini CLI 同题实测：都过了隐藏验收，但收尾卫生差很远。附完整 diff 证据。"
   ogType="article"
   publishedDate="2026-06-06"
 >
   <main class="article tb-report">
     <p class="eyebrow tb-badge">避坑实验室 · run-002 · 样本量 n = 1</p>
-    <h1>三个 AI 都说"修好了"，我只敢直接用一个</h1>
+    <h1>同一个隐形字符 bug，三个 AI 都修对了——差在谁的 diff 更干净</h1>
     <p class="lede">
-      这次的 bug 你大概率踩过还不自知：配置文件里藏着一个<strong>看不见的字符</strong>，程序不报错，但就是读不到你的配置。
+      如果你用 Windows 记事本保存过 <code>.env</code>，第一行配置前面可能会多一个<strong>看不见的字符</strong>；程序不报错，但 <code>API_KEY</code> 就是查不到。
       我们让 Codex、Claude Code、Gemini CLI 同题修复，外加一道它们看不到的隐藏验收。
     </p>
 
@@ -53,13 +53,13 @@ const agents = [
       <h2>先讲人话：这个 bug 是什么</h2>
       <p>
         你在 Windows 记事本里编辑过 <code>.env</code> 配置文件吗？保存时它可能悄悄在文件最前面塞了 3 个字节——
-        一个叫 <strong>BOM</strong> 的标记。它完全不可见，但程序读配置时，第一个变量名就从
+        一个叫 <strong>BOM</strong> 的标记，你可以把它理解成某些编辑器写在文件开头的编码提示。它完全不可见，但程序读配置时，第一个变量名就从
         <code>API_KEY</code> 变成了 <code>\ufeffAPI_KEY</code>——前面那个 <code>\ufeff</code> 就是隐形字符的学名。
       </p>
       <p class="tb-punch">于是：不报错、不崩溃，但你的程序死活读不到 API_KEY。新手能被这种问题卡一整天。</p>
       <div class="tb-bytes" aria-label="文件开头的字节示意">
         <span class="tb-byte tb-byte-bad">EF</span><span class="tb-byte tb-byte-bad">BB</span><span class="tb-byte tb-byte-bad">BF</span><span class="tb-byte">46 'F'</span><span class="tb-byte">49 'I'</span><span class="tb-byte">52 'R'</span><span class="tb-byte">53 'S'</span><span class="tb-byte">54 'T'</span><span class="tb-byte">3D '='</span><span class="tb-byte">…</span>
-        <p class="tb-bytes-cap">红色那 3 个字节就是 BOM——肉眼在编辑器里根本看不到它。这是 Python 第一配置库 <a href="https://github.com/theskumar/python-dotenv">python-dotenv</a> 的真实 bug（<a href="https://github.com/theskumar/python-dotenv/pull/640">上游 PR #640</a>）。</p>
+        <p class="tb-bytes-cap">红色那 3 个字节就是 BOM——肉眼在编辑器里根本看不到它。这是常见 Python 第三方配置库 <a href="https://github.com/theskumar/python-dotenv">python-dotenv</a> 的真实 bug（<a href="https://github.com/theskumar/python-dotenv/pull/640">上游 PR #640</a>）。</p>
       </div>
     </section>
 
@@ -68,12 +68,13 @@ const agents = [
       <div class="tb-setup">
         <div class="tb-setup-item"><span class="tb-num">1</span><p><strong>同一起点</strong><br/>固定在官方修复之前的 commit<br/><code>fa4e6a90</code></p></div>
         <div class="tb-setup-item"><span class="tb-num">2</span><p><strong>同一段指令</strong><br/>三家收到逐字相同的任务描述</p></div>
-        <div class="tb-setup-item"><span class="tb-num">3</span><p><strong>隐藏验收</strong><br/>它们看不到的 3 条私有测试，修完才揭晓</p></div>
+        <div class="tb-setup-item"><span class="tb-num">3</span><p><strong>隐藏验收</strong><br/>它们看不到的 5 项隐藏验收，修完才揭晓</p></div>
       </div>
     </section>
 
     <section>
       <h2>记分牌</h2>
+      <p class="tb-foot">下面只记录这一次任务里的交付差异，不代表三家工具综合能力。</p>
       <div class="tb-board">
         {agents.map((a) => (
           <div class="tb-card" style={`--accent:${a.accent}`}>
@@ -103,7 +104,7 @@ const agents = [
 <span class="tb-add">+           self.string = self.string[1:]</span>
 <span class="tb-ctx">        self.position = Position.start()</span></code></pre>
       <p>
-        <strong>那差别在哪？在你看不见的地方。</strong>
+        <strong>真正拉开差距的，是 diff 里的收尾动作。</strong>
         Claude Code 把回归测试加进现有用例表、附注释；Codex 在 API 层测、顺手清理了临时文件；
         Gemini 单开一个测试文件覆盖 3 种用法——但把一个无关的 <code>uv.lock</code> 也提交了进来。
       </p>
@@ -112,7 +113,7 @@ const agents = [
           <thead><tr><th>收尾检查</th><th style="color:#ea580c">Codex</th><th style="color:#6d28d9">Claude Code</th><th style="color:#2563eb">Gemini CLI</th></tr></thead>
           <tbody>
             <tr><td>核心修复正确</td><td>✅</td><td>✅</td><td>✅</td></tr>
-            <tr><td>带回归测试</td><td>✅</td><td>✅</td><td>✅✅ 覆盖最广</td></tr>
+            <tr><td>带回归测试</td><td>✅</td><td>✅</td><td>✅ 覆盖 3 种入口</td></tr>
             <tr><td>diff 只含相关改动</td><td>✅</td><td>✅</td><td>⚠️ 混入 uv.lock</td></tr>
             <tr><td>无格式噪音</td><td>✅</td><td>✅</td><td>⚠️ 尾随空格</td></tr>
             <tr><td>临时文件清理</td><td>✅ 主动删掉</td><td>—（没产生）</td><td>❌ 留下了</td></tr>
@@ -123,13 +124,14 @@ const agents = [
 
     <section>
       <h2>隐藏验收长什么样</h2>
-      <p>修复完成后，我们用三条它们从没见过的用例验收：</p>
+      <p>修复完成后，我们做了 5 项隐藏验收。先看最容易理解的 3 个 BOM 行为用例：</p>
       <ol class="tb-gate">
         <li><strong>带 BOM 的单变量文件</strong> —— 必须解析出干净的 <code>FIRST</code>，禁止出现带隐形前缀的键</li>
         <li><strong>带 BOM 的多变量文件</strong> —— 第二行之后的变量不能受影响</li>
         <li><strong>不带 BOM 的正常文件</strong> —— 防止「修过头」破坏原有行为</li>
       </ol>
-      <p class="tb-punch">三家全过。这轮没有翻车故事——但正因为都修对了，「干净程度」才成了真正的分水岭。</p>
+      <p>另外两项是 <strong>Unicode 值保留</strong>和 <strong>parser 测试套件</strong>——防止修复误删正常 Unicode 字符，或破坏现有解析行为。</p>
+      <p class="tb-punch">三家全过、5 项全过。这轮没有翻车故事——但正因为都修对了，「干净程度」才成了真正的分水岭。</p>
     </section>
 
     <section class="tb-verdict">
@@ -138,7 +140,7 @@ const agents = [
       <p>
         三个 AI 都能把活干对，但「干不干净」决定了你敢不敢不看一眼就合并。
         如果你只记一件事：<strong>AI 说"修好了"之后，看一眼它的 diff 里有没有混进无关文件。</strong>
-        这是最便宜的避坑动作。
+        发布前多看一眼 diff，通常比事后回滚便宜得多。
       </p>
     </section>
 
