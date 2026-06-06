@@ -44,10 +44,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
               <select class="ai-provider">
                 <option value="anthropic">Anthropic(Claude)</option>
                 <option value="gemini">Google(Gemini)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom-openai">自定义(OpenAI 兼容)</option>
               </select>
             </label>
             <label>模型 <input class="ai-model" type="text" value="claude-haiku-4-5" /></label>
+            <label class="ai-base-wrap" style="display:none">Base URL <input class="ai-base" type="url" placeholder="https://api.deepseek.com" autocomplete="off" /></label>
             <label>API Key <input class="ai-key" type="password" placeholder="sk-ant-..." autocomplete="off" /></label>
+            <p class="ar-provider-help"></p>
           </div>
           <div class="ar-cfg-block" id="cfgB" style="display:none">
             <h4>白方 AI</h4>
@@ -55,12 +59,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
               <select class="ai-provider">
                 <option value="gemini">Google(Gemini)</option>
                 <option value="anthropic">Anthropic(Claude)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom-openai">自定义(OpenAI 兼容)</option>
               </select>
             </label>
             <label>模型 <input class="ai-model" type="text" value="gemini-2.5-flash" /></label>
+            <label class="ai-base-wrap" style="display:none">Base URL <input class="ai-base" type="url" placeholder="https://api.deepseek.com" autocomplete="off" /></label>
             <label>API Key <input class="ai-key" type="password" placeholder="AIza..." autocomplete="off" /></label>
+            <p class="ar-provider-help"></p>
           </div>
-          <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
+          <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。OpenRouter 在 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> 建 key,Hermes / DeepSeek / Qwen / GLM / Llama 等几百个模型都在这,一个 key 全解锁。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
+          <p class="ar-safe">🇨🇳 国内模型优先走 OpenRouter;如果厂商提供 OpenAI 兼容接口,也可以选「自定义」填 Base URL。若浏览器直连被 CORS 拦住,同款模型换 OpenRouter 最稳。</p>
           <p class="ar-safe">🔒 Key 只保存在<strong>你自己的浏览器</strong>(localStorage),对局时由你的浏览器<strong>直连官方 API</strong>,不经过本站服务器——本站是纯静态页,想收也收不到。建议用单独的低额度 key。调用费用由 key 所有者承担,一局约几分钱。</p>
         </div>
         <div class="ar-logbox">
@@ -193,6 +202,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   // ===== 基础 =====
   var SIZE=ArenaEngine.SIZE, EMPTY=ArenaEngine.EMPTY, BLACK=ArenaEngine.BLACK, WHITE=ArenaEngine.WHITE;
   var API_TIMEOUT_MS=30000, FOUL_LIMIT=3, FOUL_POLICY="system_move"; // 可改为 "loss": LLM 犯规即判负
+  var MOCK_MODE=new URLSearchParams(location.search).get("mock")==="1";
+  var PROVIDERS={
+    anthropic:{protocol:"anthropic",model:"claude-haiku-4-5",keyPlaceholder:"sk-ant-...",help:'Anthropic Console 创建 API key;浏览器直连需要官方 CORS 许可头。'},
+    gemini:{protocol:"gemini",model:"gemini-2.5-flash",keyPlaceholder:"AIza...",help:'Google AI Studio 创建 API key,免费额度适合试打。'},
+    openrouter:{protocol:"openai-compatible",model:"deepseek/deepseek-chat",keyPlaceholder:"sk-or-...",baseURL:"https://openrouter.ai/api/v1",help:'OpenRouter: Hermes / DeepSeek / Qwen / GLM / Llama 等几百个模型都在这,一个 key 全解锁。'},
+    "custom-openai":{protocol:"openai-compatible",model:"deepseek-chat",keyPlaceholder:"sk-...",baseURL:"https://api.deepseek.com",customBase:true,help:'自定义 OpenAI 兼容接口:填厂商 Base URL,页面会调用 {baseURL}/chat/completions。若 CORS 失败,换 OpenRouter 接入同款模型最稳。'}
+  };
   var board, moves, over, busy=false, abortFlag=false, mode="human", gameId=0, activeAbort=null;
   var $=function(s){return document.querySelector(s)};
   var boardEl=$("#board"), statusEl=$("#status"), logEl=$("#log");
@@ -295,7 +311,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   function retryPrompt(prompt,lastErr){
     return prompt+"\n\n注意:你上次的回答无效("+lastErr+"),请重新选一个合法空位。当前推荐合法空位示例: "+ArenaEngine.legalHint(board,18)+"。仍然只返回一个 JSON。";
   }
-  async function fetchWithTimeout(url,options,signal){
+  async function fetchWithTimeout(url,options,signal,provider){
     var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},API_TIMEOUT_MS),onAbort=function(){ctl.abort();};
     if(signal)signal.addEventListener("abort",onAbort,{once:true});
     try{
@@ -305,6 +321,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }catch(e){
       if(signal&&signal.aborted)throw new Error("__abort");
       if(ctl.signal.aborted)throw new Error("请求超时(30 秒),可以稍后重试");
+      if(provider==="custom-openai")throw new Error("网络或 CORS 失败:该厂商可能不允许浏览器直连(CORS),换 OpenRouter 接入同款模型最稳");
       throw new Error("网络或 CORS 失败:浏览器直连官方 API 未连通,请检查网络、服务商是否允许浏览器直连");
     }finally{
       clearTimeout(timer);
@@ -313,13 +330,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   }
   async function apiFetch(provider,url,options,signal){
     for(var attempt=0;attempt<2;attempt++){
-      var resp=await fetchWithTimeout(url,options,signal);
+      var resp=await fetchWithTimeout(url,options,signal,provider);
       if(resp.status===429&&attempt===0){
         await sleep(900,signal);
         continue;
       }
       if(!resp.ok){
-        var body=(await resp.text()).slice(0,220),prefix=provider==="anthropic"?"Anthropic":"Gemini",msg;
+        var body=(await resp.text()).slice(0,220),prefix=providerName(provider),msg;
         if(resp.status===401||resp.status===403)msg=prefix+" key 无效或权限不足("+resp.status+"),请检查 API key / 账号额度 / 模型权限";
         else if(resp.status===429)msg=prefix+" 限流或额度用尽(429),已退避重试 1 次仍失败";
         else msg=prefix+" API 返回 "+resp.status+": "+body;
@@ -329,14 +346,18 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }
     throw new Error("API 限流,已退避重试 1 次仍失败");
   }
+  function providerName(provider){
+    return provider==="anthropic"?"Anthropic":provider==="gemini"?"Gemini":provider==="openrouter"?"OpenRouter":"自定义接口";
+  }
   async function callLLM(cfg,prompt,signal){
+    if(MOCK_MODE)return mockLLM(prompt);
     if(cfg.provider==="anthropic"){
       var resp=await apiFetch("anthropic","https://api.anthropic.com/v1/messages",{method:"POST",headers:{
         "content-type":"application/json","x-api-key":cfg.key,
         "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"
       },body:JSON.stringify({model:cfg.model,max_tokens:240,messages:[{role:"user",content:prompt}]})},signal);
       var data=await resp.json();return data.content.map(function(b){return b.text||""}).join("");
-    }else{
+    }else if(cfg.provider==="gemini"){
       var url="https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(cfg.model)+":generateContent?key="+encodeURIComponent(cfg.key);
       var resp2=await apiFetch("gemini",url,{method:"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:400}})},signal);
@@ -344,35 +365,73 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       try{return d2.candidates[0].content.parts.map(function(p){return p.text||""}).join("");}
       catch(e){throw new Error("Gemini 返回为空(可能触发安全过滤)");}
     }
-  }
-  function parseMove(text){
-    var chunks=extractJsonObjects(text),o,r,c;
-    if(chunks.length===0)throw new Error("未找到 JSON");
-    if(chunks.length>1)throw new Error("返回了多个 JSON 对象,只能返回一个");
-    try{o=JSON.parse(chunks[0]);}catch(e){throw new Error("JSON 无法解析:"+e.message);}
-    if(!o||typeof o!=="object"||Array.isArray(o))throw new Error("JSON 必须是对象");
-    if(!Number.isInteger(o.row)||!Number.isInteger(o.col))throw new Error("row/col 必须是整数数字");
-    r=o.row-1;c=o.col-1;
-    if(r<0||r>14||c<0||c>14)throw new Error("坐标越界 row="+o.row+" col="+o.col);
-    if(board[idx(r,c)]!==EMPTY)throw new Error("("+o.row+","+o.col+") 已有棋子");
-    return {j:idx(r,c),reason:String(o.reason||"").slice(0,60)};
-  }
-  function extractJsonObjects(text){
-    var out=[],depth=0,start=-1,inStr=false,esc=false,i,ch;
-    text=String(text||"");
-    for(i=0;i<text.length;i++){
-      ch=text[i];
-      if(inStr){
-        if(esc){esc=false;continue;}
-        if(ch==="\\"){esc=true;continue;}
-        if(ch==='"')inStr=false;
-        continue;
-      }
-      if(ch==='"'){inStr=true;continue;}
-      if(ch==="{"){if(depth===0)start=i;depth++;}
-      else if(ch==="}"&&depth>0){depth--;if(depth===0&&start>=0){out.push(text.slice(start,i+1));start=-1;}}
+    var base=cfg.provider==="openrouter"?"https://openrouter.ai/api/v1":normalizeBaseURL(cfg.baseURL);
+    var headers={"content-type":"application/json","Authorization":"Bearer "+cfg.key};
+    if(cfg.provider==="openrouter"){
+      headers["HTTP-Referer"]="https://sanmoshice.com";
+      headers["X-Title"]="TripleBench Arena";
+      headers["X-OpenRouter-Title"]="TripleBench Arena";
     }
-    return out;
+    // TODO: 若国内厂商浏览器直连持续被 CORS 拦截,可考虑显式 opt-in 的 Pages Function 中转;本期不实现服务器中转。
+    var resp3=await apiFetch(cfg.provider,base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",headers:headers,
+      body:JSON.stringify({model:cfg.model,messages:[{role:"user",content:prompt}],max_tokens:240,temperature:0.2})},signal);
+    var d3=await resp3.json();
+    try{return d3.choices[0].message.content||"";}
+    catch(e2){throw new Error(providerName(cfg.provider)+" 返回为空或不符合 OpenAI chat completions 格式");}
+  }
+  function normalizeBaseURL(raw){
+    var v=String(raw||"").trim();
+    if(!v)throw new Error("请先填 Base URL");
+    v=v.replace(/\/+$/,"");
+    if(/\/chat\/completions$/.test(v))v=v.replace(/\/chat\/completions$/,"");
+    if(!/^https?:\/\//i.test(v))throw new Error("Base URL 需要以 http:// 或 https:// 开头");
+    return v;
+  }
+  function mockLLM(prompt){
+    var hasRetry=prompt.indexOf("上次的回答无效")>=0;
+    if(MOCK_MODE&&moves.length===0&&!hasRetry)return '```json\n{"row":99,"col":1,"reason":"mock 首步故意越界"}\n```';
+    var who=prompt.indexOf("你执 O")>=0?WHITE:BLACK;
+    var j=bestMoveFor(board,who);
+    if(j<0)j=ArenaEngine.legalMoves(board)[0];
+    var p=ArenaEngine.rc(j);
+    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:hasRetry?"mock 重试后合法落子":"mock 合法落子"});
+  }
+  // ===== LLMTools START =====
+  var LLMTools=(function(){
+    function extractJsonObjects(text){
+      var out=[],depth=0,start=-1,inStr=false,esc=false,i,ch;
+      text=String(text||"");
+      for(i=0;i<text.length;i++){
+        ch=text[i];
+        if(inStr){
+          if(esc){esc=false;continue;}
+          if(ch==="\\"){esc=true;continue;}
+          if(ch==='"')inStr=false;
+          continue;
+        }
+        if(ch==='"'){inStr=true;continue;}
+        if(ch==="{"){if(depth===0)start=i;depth++;}
+        else if(ch==="}"&&depth>0){depth--;if(depth===0&&start>=0){out.push(text.slice(start,i+1));start=-1;}}
+      }
+      return out;
+    }
+    function parseMoveText(text,opts){
+      var chunks=extractJsonObjects(text),o,r,c;
+      if(chunks.length===0)throw new Error("未找到 JSON");
+      if(chunks.length>1)throw new Error("返回了多个 JSON 对象,只能返回一个");
+      try{o=JSON.parse(chunks[0]);}catch(e){throw new Error("JSON 无法解析:"+e.message);}
+      if(!o||typeof o!=="object"||Array.isArray(o))throw new Error("JSON 必须是对象");
+      if(!Number.isInteger(o.row)||!Number.isInteger(o.col))throw new Error("row/col 必须是整数数字");
+      r=o.row-1;c=o.col-1;
+      if(r<0||r>=opts.size||c<0||c>=opts.size)throw new Error("坐标越界 row="+o.row+" col="+o.col);
+      if(!opts.isEmpty(r,c))throw new Error("("+o.row+","+o.col+") 已有棋子");
+      return {j:opts.toIndex(r,c),reason:String(o.reason||"").slice(0,60)};
+    }
+    return {extractJsonObjects:extractJsonObjects,parseMoveText:parseMoveText};
+  })();
+  // ===== LLMTools END =====
+  function parseMove(text){
+    return LLMTools.parseMoveText(text,{size:SIZE,isEmpty:function(r,c){return board[idx(r,c)]===EMPTY;},toIndex:idx});
   }
   async function llmTurn(cfg,who,label,myGame){
     var prompt=buildPrompt(who),lastErr="";
@@ -404,25 +463,58 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     var el=$(blockSel);
     var cfg={provider:el.querySelector(".ai-provider").value,
              model:el.querySelector(".ai-model").value.trim(),
-             key:el.querySelector(".ai-key").value.trim()};
-    if(!cfg.key)throw new Error("请先填 API Key");
+             key:el.querySelector(".ai-key").value.trim(),
+             baseURL:(el.querySelector(".ai-base")&&el.querySelector(".ai-base").value.trim())||""};
+    if(!cfg.key&&!MOCK_MODE)throw new Error("请先填 API Key");
     if(!cfg.model)throw new Error("请先填模型名");
+    if(cfg.provider==="custom-openai")normalizeBaseURL(cfg.baseURL);
     return cfg;
+  }
+  function updateProviderBlock(el,keepModel){
+    var provider=el.querySelector(".ai-provider").value;
+    var meta=PROVIDERS[provider]||PROVIDERS.anthropic;
+    var modelEl=el.querySelector(".ai-model"),keyEl=el.querySelector(".ai-key"),baseWrap=el.querySelector(".ai-base-wrap"),baseEl=el.querySelector(".ai-base"),helpEl=el.querySelector(".ar-provider-help");
+    if(!keepModel)modelEl.value=meta.model;
+    modelEl.placeholder=meta.model;
+    keyEl.placeholder=meta.keyPlaceholder;
+    if(baseWrap)baseWrap.style.display=meta.customBase?"block":"none";
+    if(baseEl){
+      baseEl.placeholder=meta.baseURL||"https://api.deepseek.com";
+      if(!keepModel&&meta.customBase)baseEl.value=meta.baseURL||"";
+    }
+    if(helpEl)helpEl.innerHTML=escapeHtml(meta.help)+(MOCK_MODE?' <strong>当前为 mock 模式,不会调用真实 API。</strong>':'');
+  }
+  function wireProviderUI(){
+    ["#cfgA","#cfgB"].forEach(function(sel){
+      var el=$(sel);
+      el.querySelector(".ai-provider").addEventListener("change",function(){updateProviderBlock(el,false);});
+    });
   }
   function persistKeys(){
     try{
       var a=$("#cfgA"),b=$("#cfgB");
       localStorage.setItem("ar_keys",JSON.stringify({
-        aP:a.querySelector(".ai-provider").value,aM:a.querySelector(".ai-model").value,aK:a.querySelector(".ai-key").value,
-        bP:b.querySelector(".ai-provider").value,bM:b.querySelector(".ai-model").value,bK:b.querySelector(".ai-key").value}));
+        aP:a.querySelector(".ai-provider").value,aM:a.querySelector(".ai-model").value,aK:a.querySelector(".ai-key").value,aB:a.querySelector(".ai-base").value,
+        bP:b.querySelector(".ai-provider").value,bM:b.querySelector(".ai-model").value,bK:b.querySelector(".ai-key").value,bB:b.querySelector(".ai-base").value,
+        a:{provider:a.querySelector(".ai-provider").value,model:a.querySelector(".ai-model").value,key:a.querySelector(".ai-key").value,baseURL:a.querySelector(".ai-base").value},
+        b:{provider:b.querySelector(".ai-provider").value,model:b.querySelector(".ai-model").value,key:b.querySelector(".ai-key").value,baseURL:b.querySelector(".ai-base").value}}));
     }catch(e){}
   }
   function restoreKeys(){
     try{var s=JSON.parse(localStorage.getItem("ar_keys")||"null");if(!s)return;
       var a=$("#cfgA"),b=$("#cfgB");
-      a.querySelector(".ai-provider").value=s.aP||"anthropic";a.querySelector(".ai-model").value=s.aM||"claude-haiku-4-5";a.querySelector(".ai-key").value=s.aK||"";
-      b.querySelector(".ai-provider").value=s.bP||"gemini";b.querySelector(".ai-model").value=s.bM||"gemini-2.5-flash";b.querySelector(".ai-key").value=s.bK||"";
+      var sa=s.a||{},sb=s.b||{};
+      a.querySelector(".ai-provider").value=PROVIDERS[sa.provider||s.aP]?sa.provider||s.aP:"anthropic";
+      a.querySelector(".ai-model").value=sa.model||s.aM||"claude-haiku-4-5";
+      a.querySelector(".ai-key").value=sa.key||s.aK||"";
+      a.querySelector(".ai-base").value=sa.baseURL||s.aB||"";
+      b.querySelector(".ai-provider").value=PROVIDERS[sb.provider||s.bP]?sb.provider||s.bP:"gemini";
+      b.querySelector(".ai-model").value=sb.model||s.bM||"gemini-2.5-flash";
+      b.querySelector(".ai-key").value=sb.key||s.bK||"";
+      b.querySelector(".ai-base").value=sb.baseURL||s.bB||"";
     }catch(e){}
+    updateProviderBlock($("#cfgA"),true);
+    updateProviderBlock($("#cfgB"),true);
   }
 
   // ===== 对局主循环 =====
@@ -546,7 +638,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   $("#btn-stop").addEventListener("click",stopGame);
   $("#btn-card").addEventListener("click",drawCard);
 
-  buildBoard();restoreKeys();setMode("human");
+  buildBoard();wireProviderUI();restoreKeys();updateProviderBlock($("#cfgA"),true);updateProviderBlock($("#cfgB"),true);setMode("human");
   })();
   </script>
 

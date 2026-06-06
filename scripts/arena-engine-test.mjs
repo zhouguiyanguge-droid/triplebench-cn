@@ -5,19 +5,23 @@ import vm from "node:vm";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const arenaFile = path.join(root, "src/pages/arena/index.astro");
 const source = fs.readFileSync(arenaFile, "utf8");
-const start = source.indexOf("// ===== ArenaEngine START =====");
-const end = source.indexOf("// ===== ArenaEngine END =====");
-
-if (start < 0 || end < 0 || end <= start) {
-  throw new Error("ArenaEngine markers not found in index.astro");
+function extractMarked(name) {
+  const start = source.indexOf(`// ===== ${name} START =====`);
+  const end = source.indexOf(`// ===== ${name} END =====`);
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error(`${name} markers not found in index.astro`);
+  }
+  return source.slice(start, end);
 }
 
 const context = {};
-vm.runInNewContext(source.slice(start, end), context, { filename: "ArenaEngine.extract.js" });
+vm.runInNewContext(extractMarked("ArenaEngine"), context, { filename: "ArenaEngine.extract.js" });
+vm.runInNewContext(extractMarked("LLMTools"), context, { filename: "LLMTools.extract.js" });
 const E = context.ArenaEngine;
+const L = context.LLMTools;
 
-if (!E) {
-  throw new Error("ArenaEngine did not evaluate");
+if (!E || !L) {
+  throw new Error("ArenaEngine or LLMTools did not evaluate");
 }
 
 const tests = [];
@@ -36,6 +40,22 @@ function moveName(j) {
 }
 function hasAny(value, allowed) {
   return allowed.includes(moveName(value));
+}
+function parseMoveText(text, occupied = new Set()) {
+  return L.parseMoveText(text, {
+    size: E.SIZE,
+    isEmpty: (r, c) => !occupied.has(`${r},${c}`),
+    toIndex: E.idx,
+  });
+}
+function assertThrows(name, fn, pattern) {
+  try {
+    fn();
+  } catch (error) {
+    assert(pattern.test(error.message), `${name}: unexpected error "${error.message}"`);
+    return;
+  }
+  throw new Error(`${name}: expected throw`);
 }
 
 test("horizontal five wins", () => {
@@ -130,6 +150,28 @@ test("best move stays under 300ms on midgame board", () => {
   assert(move >= 0, "engine should return a move");
   assert(elapsed < 300, `engine took ${elapsed.toFixed(2)}ms`);
   return `${elapsed.toFixed(2)}ms`;
+});
+
+test("parse accepts markdown wrapped single JSON", () => {
+  const move = parseMoveText('```json\n{"row":8,"col":8,"reason":"中心"}\n```');
+  assert(move.j === E.idx(7, 7), `expected 8,8 got ${moveName(move.j)}`);
+});
+
+test("parse rejects multiple JSON objects", () => {
+  assertThrows("multi json", () => parseMoveText('{"row":8,"col":8} {"row":8,"col":9}'), /多个 JSON/);
+});
+
+test("parse rejects out of range coordinates", () => {
+  assertThrows("out of range", () => parseMoveText('{"row":16,"col":1}'), /坐标越界/);
+});
+
+test("parse rejects occupied coordinates", () => {
+  assertThrows("occupied", () => parseMoveText('{"row":8,"col":8}', new Set(["7,7"])), /已有棋子/);
+});
+
+test("parse truncates long reasons", () => {
+  const move = parseMoveText(JSON.stringify({ row: 8, col: 9, reason: "x".repeat(80) }));
+  assert(move.reason.length === 60, `expected 60 chars, got ${move.reason.length}`);
 });
 
 let passed = 0;
