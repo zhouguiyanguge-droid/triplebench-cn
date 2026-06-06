@@ -506,13 +506,25 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     return v;
   }
   function mockLLM(prompt){
+    // 演示局的挑战方故意"降智":多数时候随机落子,擂主能快速终结,观感才像真实 LLM 翻车
     var hasRetry=prompt.indexOf("上次的回答无效")>=0;
     if(MOCK_MODE&&moves.length===0&&!hasRetry)return '```json\n{"row":99,"col":1,"reason":"mock 首步故意越界"}\n```';
     var who=prompt.indexOf("你执 O")>=0?WHITE:BLACK;
-    var j=bestMoveFor(board,who);
-    if(j<0)j=ArenaEngine.legalMoves(board)[0];
+    var legal=ArenaEngine.legalMoves(board),j=-1,roll=Math.random();
+    if(roll<0.25){ j=bestMoveFor(board,who); }
+    else {
+      var near=legal.filter(function(x){var q=ArenaEngine.rc(x);
+        for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){var r=q[0]+dr,c=q[1]+dc;
+          if(r>=0&&r<SIZE&&c>=0&&c<SIZE&&board[ArenaEngine.idx(r,c)]!==EMPTY)return true;}
+        return false;});
+      var pool=near.length?near:legal;
+      j=pool[Math.floor(Math.random()*pool.length)];
+    }
+    if(j==null||j<0)j=legal[0];
     var p=ArenaEngine.rc(j);
-    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:hasRetry?"mock 重试后合法落子":"mock 合法落子"});
+    var sillies=["这里风水不错","直觉告诉我中间一定有东西","我在执行一个人类无法理解的大战略","封锁!(其实没封住)","根据我的计算,这步价值连城"];
+    var reason=hasRetry?"重试后老实落子了":(roll<0.25?"这步是认真算过的":sillies[Math.floor(Math.random()*sillies.length)]);
+    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:reason});
   }
   // ===== LLMTools START =====
   var LLMTools=(function(){
