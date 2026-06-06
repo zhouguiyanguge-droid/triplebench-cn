@@ -16,12 +16,14 @@ function extractMarked(name) {
 
 const context = {};
 vm.runInNewContext(extractMarked("ArenaEngine"), context, { filename: "ArenaEngine.extract.js" });
+vm.runInNewContext(extractMarked("ArenaDifficulty"), context, { filename: "ArenaDifficulty.extract.js" });
 vm.runInNewContext(extractMarked("LLMTools"), context, { filename: "LLMTools.extract.js" });
 const E = context.ArenaEngine;
+const D = context.ArenaDifficulty;
 const L = context.LLMTools;
 
-if (!E || !L) {
-  throw new Error("ArenaEngine or LLMTools did not evaluate");
+if (!E || !D || !L) {
+  throw new Error("ArenaEngine, ArenaDifficulty, or LLMTools did not evaluate");
 }
 
 const tests = [];
@@ -150,6 +152,27 @@ test("best move stays under 300ms on midgame board", () => {
   assert(move >= 0, "engine should return a move");
   assert(elapsed < 300, `engine took ${elapsed.toFixed(2)}ms`);
   return `${elapsed.toFixed(2)}ms`;
+});
+
+test("hardcore difficulty delegates to engine move", () => {
+  const b = E.emptyBoard();
+  stone(b, 8, 8, E.BLACK);
+  stone(b, 8, 9, E.WHITE);
+  assert(D.bestMoveFor(E, b, E.WHITE, "hardcore") === E.bestMoveFor(b, E.WHITE), "hardcore must match engine");
+});
+
+test("casual difficulty still takes immediate win", () => {
+  const b = E.emptyBoard();
+  for (let c = 5; c <= 8; c++) stone(b, 8, c, E.WHITE);
+  const move = D.bestMoveFor(E, b, E.WHITE, "casual");
+  assert(hasAny(move, ["8,4", "8,9"]), `casual should win immediately, got ${moveName(move)}`);
+});
+
+test("standard difficulty still blocks immediate loss", () => {
+  const b = E.emptyBoard();
+  for (let c = 5; c <= 8; c++) stone(b, 8, c, E.BLACK);
+  const move = D.bestMoveFor(E, b, E.WHITE, "standard");
+  assert(hasAny(move, ["8,4", "8,9"]), `standard should block immediately, got ${moveName(move)}`);
 });
 
 test("parse accepts markdown wrapped single JSON", () => {

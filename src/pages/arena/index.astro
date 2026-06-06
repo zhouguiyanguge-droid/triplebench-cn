@@ -16,10 +16,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
     <div class="ar-strip">
       <div class="ar-rec"><span>擂主战绩(你这台设备)</span><b id="rec-text">0 胜 · 0 负 · 0 平</b></div>
-      <div class="ar-modes" id="mode-tabs">
-        <button class="ar-tab on" data-mode="human">我亲自下</button>
-        <button class="ar-tab" data-mode="byok">我的 AI 代打</button>
-        <button class="ar-tab" data-mode="watch">AI 大战 AI</button>
+      <div class="ar-modebar">
+        <div class="ar-modes" id="mode-tabs">
+          <button class="ar-tab on" data-mode="human">我亲自下</button>
+          <button class="ar-tab" data-mode="byok">我的 AI 代打</button>
+          <button class="ar-tab" data-mode="watch">AI 大战 AI</button>
+        </div>
+        <button id="btn-mock" class="ar-btn ar-btn-mock" type="button">先看一局模拟对局(不要 key)</button>
       </div>
     </div>
 
@@ -31,8 +34,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           <span class="ar-btns">
             <button id="btn-start" class="ar-btn ar-btn-main">开始对局</button>
             <button id="btn-stop" class="ar-btn" disabled>停止</button>
+            <button id="btn-undo" class="ar-btn" disabled>悔棋</button>
             <button id="btn-card" class="ar-btn" disabled>生成战报卡</button>
+            <button id="btn-copy" class="ar-btn" disabled>复制分享文案</button>
           </span>
+        </div>
+        <div id="difficulty-row" class="ar-difficulty">
+          <span>擂主难度</span>
+          <label><input type="radio" name="arena-difficulty" value="casual" /> 休闲</label>
+          <label><input type="radio" name="arena-difficulty" value="standard" checked /> 标准</label>
+          <label><input type="radio" name="arena-difficulty" value="hardcore" /> 硬核 benchmark</label>
+          <em id="difficulty-note"></em>
         </div>
       </div>
 
@@ -69,6 +81,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             <p class="ar-provider-help"></p>
           </div>
           <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。OpenRouter 在 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> 建 key,Hermes / DeepSeek / Qwen / GLM / Llama 等几百个模型都在这,一个 key 全解锁。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
+          <p class="ar-safe">🧾 <strong>可审计:</strong>本页代码完全开源,可自行审计: <a href="https://github.com/zhouguiyanguge-droid/triplebench-cn/tree/main/src/pages/arena" target="_blank" rel="noopener">github.com/zhouguiyanguge-droid/triplebench-cn/src/pages/arena</a></p>
           <p class="ar-safe">🇨🇳 国内模型优先走 OpenRouter;如果厂商提供 OpenAI 兼容接口,也可以选「自定义」填 Base URL。若浏览器直连被 CORS 拦住,同款模型换 OpenRouter 最稳。</p>
           <p class="ar-safe">🔒 Key 只保存在<strong>你自己的浏览器</strong>(localStorage),对局时由你的浏览器<strong>直连官方 API</strong>,不经过本站服务器——本站是纯静态页,想收也收不到。建议用单独的低额度 key。调用费用由 key 所有者承担,一局约几分钱。</p>
         </div>
@@ -203,6 +216,11 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   var SIZE=ArenaEngine.SIZE, EMPTY=ArenaEngine.EMPTY, BLACK=ArenaEngine.BLACK, WHITE=ArenaEngine.WHITE;
   var API_TIMEOUT_MS=30000, FOUL_LIMIT=3, FOUL_POLICY="system_move"; // 可改为 "loss": LLM 犯规即判负
   var MOCK_MODE=new URLSearchParams(location.search).get("mock")==="1";
+  var DIFFICULTIES={
+    casual:{label:"休闲",candidateCap:10,replyCap:0,replyWeight:0},
+    standard:{label:"标准",candidateCap:14,replyCap:6,replyWeight:0.35},
+    hardcore:{label:"硬核 benchmark",candidateCap:null,replyCap:null,replyWeight:null}
+  };
   var PROVIDERS={
     anthropic:{protocol:"anthropic",model:"claude-haiku-4-5",keyPlaceholder:"sk-ant-...",help:'Anthropic Console 创建 API key;浏览器直连需要官方 CORS 许可头。'},
     gemini:{protocol:"gemini",model:"gemini-2.5-flash",keyPlaceholder:"AIza...",help:'Google AI Studio 创建 API key,免费额度适合试打。'},
@@ -210,10 +228,30 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     "custom-openai":{protocol:"openai-compatible",model:"deepseek-chat",keyPlaceholder:"sk-...",baseURL:"https://api.deepseek.com",customBase:true,help:'自定义 OpenAI 兼容接口:填厂商 Base URL,页面会调用 {baseURL}/chat/completions。若 CORS 失败,换 OpenRouter 接入同款模型最稳。'}
   };
   var board, moves, over, busy=false, abortFlag=false, mode="human", gameId=0, activeAbort=null;
+  var difficulty=localStorage.getItem("ar_difficulty")||"standard";
+  if(!DIFFICULTIES[difficulty])difficulty="standard";
+  var aiReasons=[],foulEvents=[],lastOutcome=null,lastShareText="";
   var $=function(s){return document.querySelector(s)};
   var boardEl=$("#board"), statusEl=$("#status"), logEl=$("#log");
-  var rec=JSON.parse(localStorage.getItem("ar_rec")||'{"w":0,"l":0,"d":0}');
-  function saveRec(){localStorage.setItem("ar_rec",JSON.stringify(rec));$("#rec-text").textContent=rec.w+" 胜 · "+rec.l+" 负 · "+rec.d+" 平";}
+  var rec=loadRec();
+  function loadRec(){
+    var empty={casual:{w:0,l:0,d:0},standard:{w:0,l:0,d:0},hardcore:{w:0,l:0,d:0}};
+    try{
+      var old=JSON.parse(localStorage.getItem("ar_rec")||"null");
+      if(old&&old.byDifficulty){
+        Object.keys(empty).forEach(function(k){if(old.byDifficulty[k])empty[k]=old.byDifficulty[k];});
+        return {byDifficulty:empty};
+      }
+      if(old&&typeof old.w==="number")empty.standard={w:old.w||0,l:old.l||0,d:old.d||0};
+    }catch(e){}
+    return {byDifficulty:empty};
+  }
+  function recBucket(){return rec.byDifficulty[effectiveDifficulty()]||rec.byDifficulty.standard;}
+  function saveRec(){
+    localStorage.setItem("ar_rec",JSON.stringify(rec));
+    var b=recBucket(),label=DIFFICULTIES[effectiveDifficulty()].label;
+    $("#rec-text").textContent=label+" · "+b.w+" 胜 · "+b.l+" 负 · "+b.d+" 平";
+  }
   saveRec();
 
   // ===== 棋盘 UI =====
@@ -223,7 +261,6 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
       var d=document.createElement("button");
       d.className="ar-cell";d.dataset.r=r;d.dataset.c=c;
-      d.addEventListener("click",onCellClick);
       boardEl.appendChild(d);cells.push(d);
     }
   }
@@ -234,14 +271,47 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   }
   function reset(){
     board=ArenaEngine.emptyBoard();moves=[];over=false;abortFlag=false;
+    aiReasons=[];foulEvents=[];lastOutcome=null;lastShareText="";
     render(-1);logEl.innerHTML='<p class="ar-log-empty">棋盘已就绪。</p>';
-    $("#btn-card").disabled=true;
+    $("#btn-card").disabled=true;$("#btn-copy").disabled=true;updateUndoButton();
   }
+
+  // ===== ArenaDifficulty START =====
+  var ArenaDifficulty=(function(){
+  function bestMoveFor(E,b,who,level){
+    if(level==="hardcore")return E.bestMoveFor(b,who);
+    var d=(level==="casual")?{candidateCap:10,replyCap:0,replyWeight:0}:{candidateCap:14,replyCap:6,replyWeight:0.35};
+    var SIZE=E.SIZE,BLACK=E.BLACK,WHITE=E.WHITE,opp=who===BLACK?WHITE:BLACK,cand=E.candidates(b,d.candidateCap),best=-1,bestS=-Infinity,k,j,r,c,myS,reply,cand2,m,j2,r2,c2,s2,total;
+    if(cand.length===0)return -1;
+    for(k=0;k<cand.length;k++){j=cand[k];r=(j/SIZE)|0;c=j%SIZE;if(E.placeScore(b,r,c,who)>=10000000)return j;}
+    for(k=0;k<cand.length;k++){j=cand[k];r=(j/SIZE)|0;c=j%SIZE;if(E.placeScore(b,r,c,opp)>=10000000)return j;}
+    for(k=0;k<cand.length;k++){
+      j=cand[k];r=(j/SIZE)|0;c=j%SIZE;
+      myS=E.placeScore(b,r,c,who)+0.75*E.placeScore(b,r,c,opp);
+      reply=0;
+      if(d.replyCap){
+        b[j]=who;cand2=E.candidates(b,d.replyCap);
+        for(m=0;m<cand2.length;m++){j2=cand2[m];r2=(j2/SIZE)|0;c2=j2%SIZE;s2=E.placeScore(b,r2,c2,opp)+0.8*E.placeScore(b,r2,c2,who);if(s2>reply)reply=s2;}
+        b[j]=E.EMPTY;
+      }
+      total=myS-d.replyWeight*reply;
+      if(total>bestS){bestS=total;best=j;}
+    }
+    return best;
+  }
+  return {bestMoveFor:bestMoveFor};
+  })();
+  // ===== ArenaDifficulty END =====
 
   // ===== 胜负 =====
   function idx(r,c){return ArenaEngine.idx(r,c)}
   function win(b,r,c,who){return ArenaEngine.checkWin(b,r,c,who)}
   function bestMoveFor(b,who){return ArenaEngine.bestMoveFor(b,who)}
+  function effectiveDifficulty(){return mode==="human"?difficulty:"hardcore"}
+  function difficultyLabel(){return DIFFICULTIES[effectiveDifficulty()].label}
+  function bestMoveForCurrent(b,who){
+    return ArenaDifficulty.bestMoveFor(ArenaEngine,b,who,effectiveDifficulty());
+  }
 
   // ===== 日志 =====
   function log(html,cls){
@@ -258,23 +328,51 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     var r=(j/15)|0,c=j%15;
     if(win(board,r,c,who)){endGame(who);return true;}
     if(moves.length===225){endGame(0);return true;}
+    updateUndoButton();
     return false;
   }
   function endGame(who){
     over=true;busy=false;abortFlag=false;
-    $("#btn-stop").disabled=true;$("#btn-start").disabled=false;$("#btn-card").disabled=false;
-    var msg;
-    if(who===0){msg="平局!";rec.d++;}
-    else if(mode==="watch"){msg=(who===BLACK?"黑方 AI":"白方 AI")+" 获胜!";}
-    else if(who===WHITE){msg="擂主获胜 🏆 if-else 又赢了";rec.w++;}
-    else{msg=(mode==="human"?"你":"你的 AI")+" 赢了擂主!👑 (截图战报卡炫耀一下?)";rec.l++;}
+    $("#btn-stop").disabled=true;$("#btn-start").disabled=false;$("#btn-card").disabled=false;$("#btn-copy").disabled=false;updateUndoButton();
+    var msg,bucket=recBucket(),result=who===0?"draw":(who===BLACK?"challenger":"host");
+    if(who===0){msg="平局! 这局像一份没有结论但很诚实的实验记录。生成战报卡,留个样本。";bucket.d++;}
+    else if(mode==="watch"){msg=(who===BLACK?"黑方 AI":"白方 AI")+" 获胜! 两个模型互啄,至少有一个活着走出了 JSON。";}
+    else if(who===WHITE){
+      msg=randomLoseMessage();
+      bucket.w++;
+    }else{
+      msg=randomWinMessage();
+      bucket.l++;
+    }
+    lastOutcome={winner:who,result:result,mode:mode,difficulty:effectiveDifficulty(),title:cardTitle(result),summary:msg};
+    lastShareText=buildShareText();
     if(mode!=="watch")saveRec();
     statusEl.textContent=msg;log("<b>"+msg+"</b> 共 "+moves.length+" 手","ar-li-end");
+  }
+  function randomLoseMessage(){
+    var arr=[
+      "你刚亲手完成了一次 LLM 结构性弱点实测:大模型不是搜索引擎,规则小世界里它就是弟弟。这是你的实验报告 → 生成战报卡",
+      "擂主获胜。别难过,这不是输棋,这是一次把 AI 智商税按到棋盘上摩擦的公开实验 → 生成战报卡",
+      "if-else 又赢了。你输掉的是一盘棋,收获的是一张可转发的 benchmark 证据 → 生成战报卡",
+      "实验结论:规则明确的小世界里,语言模型会一本正经地迷路。把这份战报发出去,让朋友也来验一次。",
+      "擂主获胜。300 行 JS 没有情绪,但它很会让大模型露馅。生成战报卡,这局有传播价值。"
+    ];
+    return arr[(Math.random()*arr.length)|0];
+  }
+  function randomWinMessage(){
+    var who=mode==="human"?"你":challengeName();
+    var arr=[
+      who+" 击败了擂主! 这局不是普通上分,这是把 if-else 拉下神坛的高光样本。生成战报卡炫耀一下。",
+      who+" 赢了! 规则引擎今天被教育了,战报卡已经配得上发小红书。",
+      who+" 破擂成功! 这不是运气,这是可以截图转发的 benchmark 反杀。",
+      who+" 把擂主打穿了。赶紧生成战报卡,让下一个模型来接力。"
+    ];
+    return arr[(Math.random()*arr.length)|0];
   }
 
   function onCellClick(e){
     if(mode!=="human"||over||busy)return;
-    var j=(+e.currentTarget.dataset.r)*15+(+e.currentTarget.dataset.c);
+    var j=typeof e==="number"?e:(+e.currentTarget.dataset.r)*15+(+e.currentTarget.dataset.c);
     if(board[j]!==EMPTY)return;
     busy=true;
     if(place(j,BLACK)){busy=false;return;}
@@ -283,11 +381,31 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     var myGame=gameId;
     setTimeout(function(){
       if(!isActive(myGame)||over)return;
-      var m=bestMoveFor(board,WHITE);
+      var m=bestMoveForCurrent(board,WHITE);
       if(place(m,WHITE)){busy=false;return;}
       log("擂主落子 "+coordName(m));
-      busy=false;statusEl.textContent="轮到你了";
+      busy=false;statusEl.textContent="轮到你了";updateUndoButton();
     },260);
+  }
+  function onBoardClick(e){
+    if(mode!=="human"||over||busy)return;
+    var rect=boardEl.getBoundingClientRect(),pad=6,x=e.clientX-rect.left-pad,y=e.clientY-rect.top-pad,size=Math.max(1,rect.width-pad*2),cell=size/SIZE;
+    var c=Math.max(0,Math.min(14,Math.floor(x/cell))),r=Math.max(0,Math.min(14,Math.floor(y/cell)));
+    onCellClick(idx(r,c));
+  }
+  function updateUndoButton(){
+    $("#btn-undo").disabled=!(mode==="human"&&!busy&&!over&&moves.length>0);
+  }
+  function undoHumanPair(){
+    if(mode!=="human"||busy||over||moves.length===0)return;
+    var count=moves.length&&moves[moves.length-1].who===WHITE?2:1;
+    while(count--&&moves.length){
+      var mv=moves.pop();board[mv.j]=EMPTY;
+    }
+    render(moves.length?moves[moves.length-1].j:-1);
+    statusEl.textContent="已悔棋,轮到你了";
+    log("悔棋:撤销最近一组落子","ar-li-warn");
+    updateUndoButton();
   }
 
   // ===== LLM 接入 =====
@@ -388,13 +506,25 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     return v;
   }
   function mockLLM(prompt){
+    // 演示局的挑战方故意"降智":多数时候随机落子,擂主能快速终结,观感才像真实 LLM 翻车
     var hasRetry=prompt.indexOf("上次的回答无效")>=0;
     if(MOCK_MODE&&moves.length===0&&!hasRetry)return '```json\n{"row":99,"col":1,"reason":"mock 首步故意越界"}\n```';
     var who=prompt.indexOf("你执 O")>=0?WHITE:BLACK;
-    var j=bestMoveFor(board,who);
-    if(j<0)j=ArenaEngine.legalMoves(board)[0];
+    var legal=ArenaEngine.legalMoves(board),j=-1,roll=Math.random();
+    if(roll<0.25){ j=bestMoveFor(board,who); }
+    else {
+      var near=legal.filter(function(x){var q=ArenaEngine.rc(x);
+        for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){var r=q[0]+dr,c=q[1]+dc;
+          if(r>=0&&r<SIZE&&c>=0&&c<SIZE&&board[ArenaEngine.idx(r,c)]!==EMPTY)return true;}
+        return false;});
+      var pool=near.length?near:legal;
+      j=pool[Math.floor(Math.random()*pool.length)];
+    }
+    if(j==null||j<0)j=legal[0];
     var p=ArenaEngine.rc(j);
-    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:hasRetry?"mock 重试后合法落子":"mock 合法落子"});
+    var sillies=["这里风水不错","直觉告诉我中间一定有东西","我在执行一个人类无法理解的大战略","封锁!(其实没封住)","根据我的计算,这步价值连城"];
+    var reason=hasRetry?"重试后老实落子了":(roll<0.25?"这步是认真算过的":sillies[Math.floor(Math.random()*sillies.length)]);
+    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:reason});
   }
   // ===== LLMTools START =====
   var LLMTools=(function(){
@@ -444,16 +574,20 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       if(!isActive(myGame))throw new Error("__abort");
       try{
         var mv=parseMove(text);
+        if(mv.reason)aiReasons.push({label:label,reason:mv.reason,j:mv.j});
         log("<b>"+label+"</b> "+coordName(mv.j)+(mv.reason?'<br><span class="ar-reason">💭 '+escapeHtml(mv.reason)+"</span>":""));
         return {j:mv.j,forced:false,forfeit:false};
-      }catch(pe){lastErr=pe.message;log(label+" 出了个无效着法("+escapeHtml(pe.message)+"),重试…","ar-li-warn");}
+      }catch(pe){
+        lastErr=pe.message;foulEvents.push({label:label,error:pe.message,tryNo:t+1});
+        log(label+" 第 "+(t+1)+" 次提交非法坐标——一本正经地下出了不存在的棋("+escapeHtml(pe.message)+"),重试…","ar-li-warn");
+      }
     }
     if(FOUL_POLICY==="loss"){
-      log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,按配置判负","ar-li-warn");
+      log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,按配置判负。JSON 都没走明白,棋自然也下不明白。","ar-li-warn");
       return {j:-1,forced:false,forfeit:true};
     }
     var fb=bestMoveFor(board,who);
-    log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,由系统代走 "+coordName(fb),"ar-li-warn");
+    log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,系统代走 "+coordName(fb)+"。这步不是 AI 灵光一现,是裁判把它从 JSON 泥坑里捞出来。","ar-li-warn");
     return {j:fb,forced:true,forfeit:false};
   }
   function escapeHtml(s){return s.replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
@@ -489,6 +623,26 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       var el=$(sel);
       el.querySelector(".ai-provider").addEventListener("change",function(){updateProviderBlock(el,false);});
     });
+  }
+  function wireDifficultyUI(){
+    document.querySelectorAll('input[name="arena-difficulty"]').forEach(function(input){
+      input.checked=input.value===difficulty;
+      input.addEventListener("change",function(){
+        if(this.checked&&DIFFICULTIES[this.value]){
+          difficulty=this.value;localStorage.setItem("ar_difficulty",difficulty);saveRec();syncDifficultyUI();
+        }
+      });
+    });
+    syncDifficultyUI();
+  }
+  function syncDifficultyUI(){
+    var fixed=mode!=="human",note=$("#difficulty-note");
+    document.querySelectorAll('input[name="arena-difficulty"]').forEach(function(input){
+      input.disabled=fixed;
+      input.checked=input.value===difficulty;
+    });
+    note.textContent=fixed?"AI 代打/观战固定硬核 benchmark,保证实测口径不变":"";
+    saveRec();
   }
   function persistKeys(){
     try{
@@ -586,13 +740,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     x.fillStyle="#101014";x.fillRect(0,0,1080,1440);
     var g=x.createLinearGradient(0,0,1080,0);g.addColorStop(0,"#ea580c");g.addColorStop(1,"#f59e0b");
     x.fillStyle=g;x.fillRect(0,0,1080,14);
-    x.fillStyle="#f59e0b";x.font="bold 44px sans-serif";x.fillText("AI 擂台 · 五子棋战报",60,110);
+    var title=(lastOutcome&&lastOutcome.title)||cardTitle("draw");
+    x.fillStyle="#f59e0b";x.font="bold 38px sans-serif";x.fillText("AI 擂台 · 五子棋战报",60,90);
     x.fillStyle="#fff";x.font="bold 64px sans-serif";
-    x.fillText(statusEl.textContent.slice(0,16),60,200);
+    wrapText(x,title,60,165,960,70,2);
     x.fillStyle="#a1a1aa";x.font="32px sans-serif";
-    x.fillText("共 "+moves.length+" 手 · 模式:"+(mode==="human"?"真人挑战":mode==="byok"?"AI 代打":"AI 对战")+" · "+new Date().toLocaleDateString(),60,260);
+    x.fillText("共 "+moves.length+" 手 · "+modeLabel()+" · 难度:"+difficultyLabel()+" · 犯规:"+foulEvents.length+" 次",60,300);
     // board
-    var bx=90,by=330,cell=60;
+    var bx=90,by=360,cell=56;
     x.fillStyle="#d9b06b";x.fillRect(bx-30,by-30,cell*14+60,cell*14+60);
     x.strokeStyle="#7c5a26";x.lineWidth=2;
     for(var i=0;i<15;i++){
@@ -606,11 +761,57 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       x.strokeStyle="#333";x.lineWidth=1.5;x.stroke();
       if(k===moves.length-1){x.strokeStyle="#ef4444";x.lineWidth=4;x.beginPath();x.arc(bx+c*cell,by+r*cell,28,0,7);x.stroke();}
     }
-    x.fillStyle="#71717a";x.font="30px sans-serif";
-    x.fillText("黑 = 挑战方 · 白 = "+(mode==="watch"?"白方 AI":"擂主(规则引擎)"),60,1300);
+    var reason=bestReasonText();
+    x.fillStyle="#27272a";roundRect(x,60,1215,960,94,14);x.fill();
+    x.fillStyle="#fef3c7";x.font="bold 28px sans-serif";x.fillText(reason.title,86,1252);
+    x.fillStyle="#fff";x.font="28px sans-serif";wrapText(x,reason.text,86,1290,900,36,2);
+    x.fillStyle="#71717a";x.font="28px sans-serif";
+    x.fillText("黑 = 挑战方 · 白 = "+(mode==="watch"?"白方 AI":"擂主(规则引擎)")+" · "+new Date().toLocaleDateString(),60,1350);
     x.fillStyle="#f59e0b";x.font="bold 34px sans-serif";
-    x.fillText("来挑战:sanmoshice.com/arena",60,1370);
+    x.fillText("来挑战:sanmoshice.com/arena",60,1400);
     var a=document.createElement("a");a.download="arena-"+Date.now()+".png";a.href=cv.toDataURL("image/png");a.click();
+  }
+  function roundRect(x,left,top,width,height,radius){
+    x.beginPath();x.moveTo(left+radius,top);x.lineTo(left+width-radius,top);x.quadraticCurveTo(left+width,top,left+width,top+radius);x.lineTo(left+width,top+height-radius);x.quadraticCurveTo(left+width,top+height,left+width-radius,top+height);x.lineTo(left+radius,top+height);x.quadraticCurveTo(left,top+height,left,top+height-radius);x.lineTo(left,top+radius);x.quadraticCurveTo(left,top,left+radius,top);x.closePath();
+  }
+  function wrapText(x,text,left,top,maxWidth,lineHeight,maxLines){
+    var words=String(text||"").split(""),line="",lines=0,i,test;
+    for(i=0;i<words.length;i++){
+      test=line+words[i];
+      if(x.measureText(test).width>maxWidth&&line){x.fillText(line,left,top);top+=lineHeight;lines++;line=words[i];if(maxLines&&lines>=maxLines-1)break;}
+      else line=test;
+    }
+    if(maxLines&&lines>=maxLines-1&&i<words.length-1)line=line.slice(0,Math.max(0,line.length-1))+"…";
+    if(line)x.fillText(line,left,top);
+  }
+  function challengeName(){
+    if(mode==="human")return "我";
+    if(MOCK_MODE)return "模拟 AI";
+    var model=($("#cfgA")&&$("#cfgA").querySelector(".ai-model").value.trim())||"我的 AI";
+    return "我的 "+model;
+  }
+  function modeLabel(){return mode==="human"?"真人挑战":mode==="byok"?(MOCK_MODE?"模拟 AI 代打":"AI 代打"):"AI 对战"}
+  function cardTitle(result){
+    var name=challengeName();
+    if(result==="challenger")return name+" 击败了擂主";
+    if(result==="host")return name+" 被 300 行 if-else 教育了";
+    return name+" 和擂主打成了平手";
+  }
+  function bestReasonText(){
+    if(foulEvents.length)return {title:"AI 犯规名场面",text:foulEvents[foulEvents.length-1].label+" "+foulEvents[foulEvents.length-1].error};
+    if(aiReasons.length)return {title:"AI 思考摘录",text:aiReasons[aiReasons.length-1].label+": "+aiReasons[aiReasons.length-1].reason};
+    return {title:"本局观察",text:mode==="human"?"真人亲自下场,这张卡记录了你和 if-else 擂主的一次硬碰硬。":"本局没有可摘录的 AI 理由,但棋盘已经说明问题。"};
+  }
+  function buildShareText(){
+    var title=(lastOutcome&&lastOutcome.title)||cardTitle("draw"),reason=bestReasonText();
+    return title+"\n\n我在三模实测 AI 擂台跑了一局五子棋:共 "+moves.length+" 手,难度 "+difficultyLabel()+",AI 犯规 "+foulEvents.length+" 次。\n\n"+reason.title+": "+reason.text+"\n\n来挑战: https://sanmoshice.com/arena/";
+  }
+  async function copyShareText(){
+    lastShareText=lastShareText||buildShareText();
+    try{await navigator.clipboard.writeText(lastShareText);statusEl.textContent="分享文案已复制,去小红书/朋友圈贴战报吧";}
+    catch(e){
+      var ta=document.createElement("textarea");ta.value=lastShareText;document.body.appendChild(ta);ta.select();document["exec"+"Command"]("copy");ta.remove();statusEl.textContent="分享文案已复制";
+    }
   }
 
   // ===== 模式切换 / 事件 =====
@@ -624,11 +825,25 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     $("#btn-start").textContent=m==="human"?"重新开局":"开始对局";
     beginGame();
     reset();
-    setRunningControls(false);
-    statusEl.textContent=m==="human"?"你执黑先行,点击棋盘落子":"填好配置,点「开始对局」";
+    setRunningControls(false);syncDifficultyUI();updateUndoButton();
+    statusEl.textContent=m==="human"?"你执黑先行,点击棋盘落子":(MOCK_MODE?"模拟模式已开启,点开始或等自动开局":"填好配置,点「开始对局」");
+  }
+  function setMockMode(on){
+    MOCK_MODE=!!on;updateProviderBlock($("#cfgA"),true);updateProviderBlock($("#cfgB"),true);
+  }
+  function startMockGame(){
+    setMockMode(true);
+    setMode("byok");
+    var cfg=$("#cfgA");
+    cfg.querySelector(".ai-provider").value="openrouter";
+    updateProviderBlock(cfg,false);
+    cfg.querySelector(".ai-model").value="mock-demo-model";
+    cfg.querySelector(".ai-key").value="";
+    statusEl.textContent="模拟 AI 已入场:不用 key,先看它如何一本正经犯错";
+    setTimeout(function(){if(mode==="byok"&&!busy)runByok();},80);
   }
   $("#mode-tabs").addEventListener("click",function(e){
-    var b=e.target.closest(".ar-tab");if(b)setMode(b.dataset.mode);
+    var b=e.target.closest(".ar-tab");if(b){setMockMode(false);setMode(b.dataset.mode);}
   });
   $("#btn-start").addEventListener("click",function(){
     if(mode==="human"){beginGame();reset();setRunningControls(false);statusEl.textContent="你执黑先行,点击棋盘落子";}
@@ -636,9 +851,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     else runWatch();
   });
   $("#btn-stop").addEventListener("click",stopGame);
+  $("#btn-undo").addEventListener("click",undoHumanPair);
   $("#btn-card").addEventListener("click",drawCard);
+  $("#btn-copy").addEventListener("click",copyShareText);
+  $("#btn-mock").addEventListener("click",startMockGame);
+  boardEl.addEventListener("click",onBoardClick);
 
-  buildBoard();wireProviderUI();restoreKeys();updateProviderBlock($("#cfgA"),true);updateProviderBlock($("#cfgB"),true);setMode("human");
+  buildBoard();wireProviderUI();wireDifficultyUI();restoreKeys();updateProviderBlock($("#cfgA"),true);updateProviderBlock($("#cfgB"),true);setMode("human");
   })();
   </script>
 
@@ -648,15 +867,16 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .ar-strip { display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; margin:1.4rem 0; }
     .ar-rec { font-size:.9rem; color:#71717a; display:flex; flex-direction:column; }
     .ar-rec b { font-size:1.15rem; color:#ea580c; }
+    .ar-modebar { display:flex; flex-wrap:wrap; gap:.55rem; justify-content:flex-end; align-items:center; }
     .ar-modes { display:flex; gap:.5rem; }
     .ar-tab { border:1px solid #e5e7eb; background:#fff; padding:.5rem .95rem; border-radius:999px; font-weight:700; cursor:pointer; font-size:.92rem; }
     .ar-tab.on { background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; border-color:transparent; }
     .ar-wrap { display:grid; grid-template-columns: minmax(300px,560px) minmax(260px,1fr); gap:1.2rem; align-items:start; }
     @media (max-width:760px){ .ar-wrap { grid-template-columns:1fr; } }
-    .ar-board { display:grid; grid-template-columns:repeat(15,1fr); aspect-ratio:1; background:#d9b06b; border-radius:10px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,.15); }
+    .ar-board { display:grid; grid-template-columns:repeat(15,1fr); aspect-ratio:1; width:100%; max-width:min(560px, calc(100vw - 2rem)); background:#d9b06b; border-radius:10px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,.15); touch-action:manipulation; user-select:none; cursor:pointer; }
     .ar-cell { position:relative; border:none; background:
       linear-gradient(#7c5a26,#7c5a26) center/100% 1.5px no-repeat,
-      linear-gradient(#7c5a26,#7c5a26) center/1.5px 100% no-repeat; cursor:pointer; padding:0; }
+      linear-gradient(#7c5a26,#7c5a26) center/1.5px 100% no-repeat; cursor:pointer; padding:0; pointer-events:none; min-width:0; min-height:0; }
     .ar-cell.s-b::after, .ar-cell.s-w::after { content:""; position:absolute; inset:12%; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,.4); animation:drop .18s ease-out; }
     .ar-cell.s-b::after { background:radial-gradient(circle at 35% 30%, #555, #0a0a0a); }
     .ar-cell.s-w::after { background:radial-gradient(circle at 35% 30%, #fff, #cfcfcf); }
@@ -664,15 +884,21 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     @keyframes drop { from { transform:scale(1.5); opacity:.4 } to { transform:scale(1); opacity:1 } }
     .ar-under { display:flex; flex-wrap:wrap; gap:.7rem; justify-content:space-between; align-items:center; margin-top:.8rem; }
     .ar-status { font-weight:700; color:#3f3f46; }
-    .ar-btns { display:flex; gap:.5rem; }
+    .ar-btns { display:flex; flex-wrap:wrap; gap:.5rem; }
     .ar-btn { border:1px solid #e5e7eb; background:#fff; padding:.5rem .9rem; border-radius:10px; font-weight:700; cursor:pointer; }
     .ar-btn:disabled { opacity:.45; cursor:not-allowed; }
     .ar-btn-main { background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; border-color:transparent; }
+    .ar-btn-mock { background:#111827; color:#fff; border-color:#111827; box-shadow:0 6px 18px rgba(17,24,39,.18); }
+    .ar-difficulty { display:flex; flex-wrap:wrap; gap:.55rem; align-items:center; margin-top:.75rem; font-size:.86rem; color:#52525b; }
+    .ar-difficulty span { font-weight:800; color:#3f3f46; }
+    .ar-difficulty label { display:inline-flex; align-items:center; gap:.25rem; white-space:nowrap; }
+    .ar-difficulty em { color:#a16207; font-style:normal; }
     .ar-cfg { border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.1rem; background:#fff; margin-bottom:1rem; display:none; }
     .ar-cfg-block h4 { margin:.2rem 0 .5rem; }
     .ar-cfg label { display:block; font-size:.85rem; color:#52525b; margin:.45rem 0; }
     .ar-cfg input, .ar-cfg select { width:100%; box-sizing:border-box; margin-top:.25rem; padding:.5rem .6rem; border:1px solid #e5e7eb; border-radius:8px; font-size:.92rem; background:#fafafa; }
     .ar-safe { font-size:.8rem; color:#71717a; line-height:1.7; margin:.7rem 0 0; }
+    .ar-provider-help { font-size:.78rem; color:#71717a; line-height:1.55; margin:.45rem 0 0; }
     .ar-logbox { border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.1rem; background:#fff; }
     .ar-logbox h4 { margin:.2rem 0 .6rem; }
     .ar-log { max-height:430px; overflow-y:auto; display:flex; flex-direction:column; gap:.45rem; }
@@ -684,10 +910,12 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .ar-faq { margin-top:2.6rem; }
     @media (prefers-color-scheme: dark) {
       .ar-tab,.ar-btn,.ar-cfg,.ar-logbox { background:#18181b; border-color:#27272a; color:#e4e4e7; }
+      .ar-btn-mock { background:#f59e0b; color:#18181b; border-color:#f59e0b; }
       .ar-cfg input,.ar-cfg select { background:#27272a; border-color:#3f3f46; color:#e4e4e7; }
       .ar-log-item { background:#27272a; border-left-color:#3f3f46; }
       .ar-li-warn { background:#2a2010; } .ar-li-end { background:#2a1a10; }
-      .ar-status { color:#e4e4e7; }
+      .ar-status,.ar-difficulty span { color:#e4e4e7; }
+      .ar-difficulty { color:#a1a1aa; }
     }
   </style>
 </BaseLayout>
