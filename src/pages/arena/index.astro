@@ -60,6 +60,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
             <label>模型 <input class="ai-model" type="text" value="gemini-2.5-flash" /></label>
             <label>API Key <input class="ai-key" type="password" placeholder="AIza..." autocomplete="off" /></label>
           </div>
+          <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
           <p class="ar-safe">🔒 Key 只保存在<strong>你自己的浏览器</strong>(localStorage),对局时由你的浏览器<strong>直连官方 API</strong>,不经过本站服务器——本站是纯静态页,想收也收不到。建议用单独的低额度 key。调用费用由 key 所有者承担,一局约几分钱。</p>
         </div>
         <div class="ar-logbox">
