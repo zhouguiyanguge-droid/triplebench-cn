@@ -1,0 +1,206 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const agents = [
+  {
+    name: "Codex",
+    accent: "#ea580c",
+    time: "1分47秒",
+    timeNote: "最快",
+    hygiene: "A",
+    hygieneNote: "自己清理了临时文件",
+    test: "API 层回归测试",
+    line: "环境里没装测试工具，它自己找到替代方案跑通，最后还把过程中生成的锁文件删干净了。",
+  },
+  {
+    name: "Claude Code",
+    accent: "#6d28d9",
+    time: "2分25秒",
+    timeNote: "中间",
+    hygiene: "A+",
+    hygieneNote: "改动最干净",
+    test: "解析器层回归测试",
+    line: "只动了该动的两个文件，测试直接加进现有用例表，还写了注释说明为什么。",
+  },
+  {
+    name: "Gemini CLI",
+    accent: "#2563eb",
+    time: "3分27秒",
+    timeNote: "最慢（含一次平台重试）",
+    hygiene: "B",
+    hygieneNote: "留下了无关文件",
+    test: "新建独立测试文件×3用例",
+    line: "修对了，测试覆盖也最广，但 diff 里混进了一个无关的依赖锁文件和多余空格。",
+  },
+];
+---
+
+<BaseLayout
+  title="同一个隐形字符 bug，三个 AI 都修对了，差在 diff 谁更干净 - 三模实测 run-002"
+  description="一个看不见的字符让程序读不到配置。Codex、Claude Code、Gemini CLI 同题实测：都过了隐藏验收，但收尾卫生差很远。附完整 diff 证据。"
+  ogType="article"
+  publishedDate="2026-06-06"
+>
+  <main class="article tb-report">
+    <p class="eyebrow tb-badge">避坑实验室 · run-002 · 样本量 n = 1</p>
+    <h1>同一个隐形字符 bug，三个 AI 都修对了——差在谁的 diff 更干净</h1>
+    <p class="lede">
+      如果你用 Windows 记事本保存过 <code>.env</code>，第一行配置前面可能会多一个<strong>看不见的字符</strong>；程序不报错，但 <code>API_KEY</code> 就是查不到。
+      我们让 Codex、Claude Code、Gemini CLI 同题修复，外加它们看不到的隐藏验收。<br/><strong>上期看谁修得快，这期看谁收尾干净。</strong>
+    </p>
+
+    <section class="tb-story">
+      <h2>先讲人话：这个 bug 是什么</h2>
+      <p>
+        你在 Windows 记事本里编辑过 <code>.env</code> 配置文件吗？保存时它可能悄悄在文件最前面塞了 3 个字节——
+        一个叫 <strong>BOM</strong> 的标记，你可以把它理解成某些编辑器写在文件开头的编码提示。它完全不可见，但程序读配置时，第一个变量名就从
+        <code>API_KEY</code> 变成了 <code>\ufeffAPI_KEY</code>——前面那个 <code>\ufeff</code> 就是隐形字符的学名。
+      </p>
+      <p class="tb-punch">于是：不报错、不崩溃，但你的程序死活读不到 API_KEY。新手能被这种问题卡一整天。</p>
+      <div class="tb-bytes" aria-label="文件开头的字节示意">
+        <span class="tb-byte tb-byte-bad">EF</span><span class="tb-byte tb-byte-bad">BB</span><span class="tb-byte tb-byte-bad">BF</span><span class="tb-byte">46 'F'</span><span class="tb-byte">49 'I'</span><span class="tb-byte">52 'R'</span><span class="tb-byte">53 'S'</span><span class="tb-byte">54 'T'</span><span class="tb-byte">3D '='</span><span class="tb-byte">…</span>
+        <p class="tb-bytes-cap">红色那 3 个字节就是 BOM——肉眼在编辑器里根本看不到它。这是常见 Python 第三方配置库 <a href="https://github.com/theskumar/python-dotenv">python-dotenv</a> 的真实 bug（<a href="https://github.com/theskumar/python-dotenv/pull/640">上游 PR #640</a>）。</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>实验怎么做</h2>
+      <div class="tb-setup">
+        <div class="tb-setup-item"><span class="tb-num">1</span><p><strong>同一起点</strong><br/>固定在官方修复之前的 commit<br/><code>fa4e6a90</code></p></div>
+        <div class="tb-setup-item"><span class="tb-num">2</span><p><strong>同一段指令</strong><br/>三家收到逐字相同的任务描述</p></div>
+        <div class="tb-setup-item"><span class="tb-num">3</span><p><strong>隐藏验收</strong><br/>它们看不到的 5 项隐藏验收，修完才揭晓</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>记分牌</h2>
+      <p class="tb-foot">下面只记录这一次任务里的交付差异，不代表三家工具综合能力。</p>
+      <div class="tb-board">
+        {agents.map((a) => (
+          <div class="tb-card" style={`--accent:${a.accent}`}>
+            <div class="tb-card-head">
+              <h3>{a.name}</h3>
+              <span class="tb-pill tb-pass">隐藏验收 ✓</span>
+            </div>
+            <div class="tb-stats-row">
+              <div class="tb-stat-mini"><span class="tb-k">用时</span><span class="tb-v">{a.time}</span><span class="tb-note">{a.timeNote}</span></div>
+              <div class="tb-stat-mini"><span class="tb-k">工程卫生</span><span class="tb-v tb-grade">{a.hygiene}</span><span class="tb-note">{a.hygieneNote}</span></div>
+            </div>
+            <p class="tb-test">{a.test}</p>
+            <p class="tb-line">{a.line}</p>
+          </div>
+        ))}
+      </div>
+      <p class="tb-foot">用时为操作者实测的本地 CLI 墙钟时间，非标准化算力基准。Gemini 含一次「429 无可用容量」平台重试。</p>
+    </section>
+
+    <section>
+      <h2>有意思的地方：三家改的是同一行代码</h2>
+      <p>核心修复一模一样——读文件时，开头如果是那个隐形字符，掐掉它：</p>
+      <pre class="tb-diff"><code><span class="tb-ctx">class Reader:
+    def __init__(self, stream: IO[str]) -&gt; None:
+        self.string = stream.read()</span>
+<span class="tb-add">+       if self.string.startswith("\ufeff"):</span>
+<span class="tb-add">+           self.string = self.string[1:]</span>
+<span class="tb-ctx">        self.position = Position.start()</span></code></pre>
+      <p>
+        <strong>真正拉开差距的，是 diff 里的收尾动作。</strong>
+        Claude Code 把回归测试加进现有用例表、附注释；Codex 在 API 层测、顺手清理了临时文件；
+        Gemini 单开一个测试文件覆盖 3 种用法——但把一个无关的 <code>uv.lock</code> 也提交了进来。
+      </p>
+      <div class="tb-compare">
+        <table>
+          <thead><tr><th>收尾检查</th><th style="color:#ea580c">Codex</th><th style="color:#6d28d9">Claude Code</th><th style="color:#2563eb">Gemini CLI</th></tr></thead>
+          <tbody>
+            <tr><td>核心修复正确</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td>带回归测试</td><td>✅</td><td>✅</td><td>✅ 覆盖 3 种入口</td></tr>
+            <tr><td>diff 只含相关改动</td><td>✅</td><td>✅</td><td>⚠️ 混入 uv.lock</td></tr>
+            <tr><td>无格式噪音</td><td>✅</td><td>✅</td><td>⚠️ 尾随空格</td></tr>
+            <tr><td>临时文件清理</td><td>✅ 主动删掉</td><td>—（没产生）</td><td>❌ 留下了</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>隐藏验收长什么样</h2>
+      <p>修复完成后，我们做了 5 项隐藏验收。先看最容易理解的 3 个 BOM 行为用例：</p>
+      <ol class="tb-gate">
+        <li><strong>带 BOM 的单变量文件</strong> —— 必须解析出干净的 <code>FIRST</code>，禁止出现带隐形前缀的键</li>
+        <li><strong>带 BOM 的多变量文件</strong> —— 第二行之后的变量不能受影响</li>
+        <li><strong>不带 BOM 的正常文件</strong> —— 防止「修过头」破坏原有行为</li>
+      </ol>
+      <p>另外两项是 <strong>Unicode 值保留</strong>和 <strong>parser 测试套件</strong>——防止修复误删正常 Unicode 字符，或破坏现有解析行为。</p>
+      <p class="tb-punch">三家全过、5 项全过。这轮没有翻车故事——但正因为都修对了，「干净程度」才成了真正的分水岭。</p>
+    </section>
+
+    <section class="tb-verdict">
+      <h2>这期的结论</h2>
+      <p class="tb-big">代码能跑 ≠ 能直接合进项目。</p>
+      <p>
+        三个 AI 都能把活干对，但「干不干净」决定了你敢不敢不看一眼就合并。
+        如果你只记一件事：<strong>AI 说"修好了"之后，看一眼它的 diff 里有没有混进无关文件。</strong>
+        发布前多看一眼 diff，通常比事后回滚便宜得多。
+      </p>
+    </section>
+
+    <section>
+      <h2>证据与复现</h2>
+      <ul>
+        <li>真实仓库：<a href="https://github.com/theskumar/python-dotenv">theskumar/python-dotenv</a>，起点 pin <code>fa4e6a90b45428212452afc6ee0d5c8103b9301d</code>（官方修复 <a href="https://github.com/theskumar/python-dotenv/pull/640">PR #640</a> 之前）</li>
+        <li>三家完整 diff、隐藏验收用例、运行时间线：见上文与 <a href="/methodology/">方法论 v1</a></li>
+        <li>原始终端日志已完整存档，复现或索取请走 <a href="https://github.com/zhouguiyanguge-droid/triplebench-cn">GitHub</a> issue</li>
+      </ul>
+      <p class="tb-foot">单任务 n=1，本文不构成三家工具的综合排名。每期任务都会换，结论只对本任务负责。上一期：<a href="/reports/codex-claude-gemini/">run-001 · 同一个 bug，三个 agent，一个隐藏测试</a></p>
+    </section>
+  </main>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    section { margin:2.6rem 0; }
+    .tb-punch { font-weight:700; }
+    .tb-bytes { margin:1.2rem 0; padding:1.1rem 1.2rem; border:1px solid #e5e7eb; border-radius:14px; background:#fafafa; }
+    .tb-byte { display:inline-block; font-family:ui-monospace,monospace; font-size:.85rem; padding:.35rem .5rem; margin:.15rem; border-radius:8px; background:#fff; border:1px solid #e5e7eb; }
+    .tb-byte-bad { background:#fef2f2; border-color:#fca5a5; color:#b91c1c; font-weight:800; animation:tbpulse 2s infinite; }
+    @keyframes tbpulse { 0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.25)} 50%{box-shadow:0 0 0 6px rgba(220,38,38,0)} }
+    .tb-bytes-cap { font-size:.85rem; color:#71717a; margin:.6rem 0 0; }
+    .tb-setup { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; }
+    .tb-setup-item { border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.1rem; background:#fff; display:flex; gap:.8rem; align-items:flex-start; }
+    .tb-setup-item p { margin:0; font-size:.92rem; line-height:1.6; }
+    .tb-num { flex:0 0 auto; width:1.8rem; height:1.8rem; border-radius:50%; background:linear-gradient(135deg,#ea580c,#f59e0b); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; }
+    .tb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1rem; }
+    .tb-card { border:1px solid #e5e7eb; border-top:5px solid var(--accent); border-radius:14px; padding:1.1rem 1.2rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); transition:transform .15s ease, box-shadow .15s ease; }
+    .tb-card:hover { transform:translateY(-4px); box-shadow:0 14px 32px rgba(0,0,0,.1); }
+    .tb-card-head { display:flex; justify-content:space-between; align-items:center; }
+    .tb-card-head h3 { margin:0; color:var(--accent); }
+    .tb-pill { font-size:.72rem; font-weight:800; padding:.2rem .55rem; border-radius:999px; }
+    .tb-pass { background:#dcfce7; color:#166534; }
+    .tb-stats-row { display:flex; gap:1.2rem; margin:.9rem 0 .4rem; }
+    .tb-stat-mini { display:flex; flex-direction:column; }
+    .tb-k { font-size:.75rem; color:#71717a; }
+    .tb-v { font-size:1.25rem; font-weight:800; }
+    .tb-grade { color:var(--accent); }
+    .tb-note { font-size:.75rem; color:#a1a1aa; }
+    .tb-test { font-size:.82rem; font-weight:700; color:#3f3f46; background:#f4f4f5; display:inline-block; padding:.2rem .55rem; border-radius:8px; margin:.3rem 0; }
+    .tb-line { font-size:.92rem; color:#52525b; line-height:1.7; margin:.4rem 0 0; }
+    .tb-diff { background:#0b1020; border-radius:14px; padding:1.1rem 1.2rem; overflow-x:auto; font-size:.86rem; line-height:1.65; }
+    .tb-diff code { font-family:ui-monospace,monospace; }
+    .tb-ctx { color:#8b95b3; }
+    .tb-add { color:#4ade80; display:block; background:rgba(74,222,128,.09); }
+    .tb-compare table { width:100%; border-collapse:collapse; font-size:.92rem; }
+    .tb-compare th, .tb-compare td { padding:.55rem .6rem; border-bottom:1px solid #ececef; text-align:center; }
+    .tb-compare td:first-child, .tb-compare th:first-child { text-align:left; }
+    .tb-gate li { margin:.5rem 0; line-height:1.7; }
+    .tb-verdict { border:1px solid #fed7aa; background:linear-gradient(135deg,#fff7ed,#fffbeb); border-radius:16px; padding:1.4rem 1.6rem; }
+    .tb-big { font-size:1.5rem; font-weight:900; margin:.4rem 0; background:linear-gradient(90deg,#ea580c,#b45309); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .tb-foot { font-size:.82rem; color:#a1a1aa; margin-top:1rem; }
+    @media (prefers-color-scheme: dark) {
+      .tb-bytes,.tb-setup-item,.tb-card { background:#18181b; border-color:#27272a; }
+      .tb-byte { background:#27272a; border-color:#3f3f46; }
+      .tb-byte-bad { background:#450a0a; border-color:#7f1d1d; color:#fca5a5; }
+      .tb-test { background:#27272a; color:#d4d4d8; }
+      .tb-compare th,.tb-compare td { border-color:#27272a; }
+      .tb-verdict { background:#1c1917; border-color:#7c2d12; }
+    }
+  </style>
+</BaseLayout>
