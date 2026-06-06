@@ -1,0 +1,474 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="AI 擂台 · 五子棋 - 三模实测"
+  description="带上你自己的 AI 来打擂:Claude、Gemini 直连对战我们的规则引擎擂主。你的大模型,打得过一段 if-else 吗?亲自下也行。"
+>
+  <main class="article tb-arena">
+    <p class="eyebrow tb-badge">AI 擂台 · 第 1 关 · 五子棋</p>
+    <h1>你的 AI,打得过一段 if-else 吗?</h1>
+    <p class="lede">
+      擂主是我们手写的<strong>规则引擎</strong>——没有大模型、不花一分钱、每步算得明明白白。
+      你可以亲自上,也可以把你自己的 Claude / Gemini 带来代打。大模型下棋的真实水平,一试便知。
+    </p>
+
+    <div class="ar-strip">
+      <div class="ar-rec"><span>擂主战绩(你这台设备)</span><b id="rec-text">0 胜 · 0 负 · 0 平</b></div>
+      <div class="ar-modes" id="mode-tabs">
+        <button class="ar-tab on" data-mode="human">我亲自下</button>
+        <button class="ar-tab" data-mode="byok">我的 AI 代打</button>
+        <button class="ar-tab" data-mode="watch">AI 大战 AI</button>
+      </div>
+    </div>
+
+    <div class="ar-wrap">
+      <div class="ar-left">
+        <div id="board" class="ar-board" aria-label="五子棋棋盘"></div>
+        <div class="ar-under">
+          <span id="status" class="ar-status">你执黑先行,点击棋盘落子</span>
+          <span class="ar-btns">
+            <button id="btn-start" class="ar-btn ar-btn-main">开始对局</button>
+            <button id="btn-stop" class="ar-btn" disabled>停止</button>
+            <button id="btn-card" class="ar-btn" disabled>生成战报卡</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="ar-right">
+        <div id="cfg" class="ar-cfg">
+          <div class="ar-cfg-block" id="cfgA">
+            <h4 id="cfgA-title">挑战方 AI(执黑)</h4>
+            <label>服务商
+              <select class="ai-provider">
+                <option value="anthropic">Anthropic(Claude)</option>
+                <option value="gemini">Google(Gemini)</option>
+              </select>
+            </label>
+            <label>模型 <input class="ai-model" type="text" value="claude-haiku-4-5" /></label>
+            <label>API Key <input class="ai-key" type="password" placeholder="sk-ant-..." autocomplete="off" /></label>
+          </div>
+          <div class="ar-cfg-block" id="cfgB" style="display:none">
+            <h4>白方 AI</h4>
+            <label>服务商
+              <select class="ai-provider">
+                <option value="gemini">Google(Gemini)</option>
+                <option value="anthropic">Anthropic(Claude)</option>
+              </select>
+            </label>
+            <label>模型 <input class="ai-model" type="text" value="gemini-2.5-flash" /></label>
+            <label>API Key <input class="ai-key" type="password" placeholder="AIza..." autocomplete="off" /></label>
+          </div>
+          <p class="ar-safe">🔒 Key 只保存在<strong>你自己的浏览器</strong>(localStorage),对局时由你的浏览器<strong>直连官方 API</strong>,不经过本站服务器——本站是纯静态页,想收也收不到。建议用单独的低额度 key。调用费用由 key 所有者承担,一局约几分钱。</p>
+        </div>
+        <div class="ar-logbox">
+          <h4>对局记录 / AI 思考</h4>
+          <div id="log" class="ar-log"><p class="ar-log-empty">还没有对局。选个模式,开打。</p></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="ar-faq">
+      <h2>这个擂台是怎么回事</h2>
+      <p><strong>擂主不是 AI,是算法。</strong>一段约三百行的 JavaScript:扫描棋型、算分、看两步。它不思考、不犹豫、不收订阅费。而大语言模型下棋是出了名的菜——它是语言模型,不是搜索引擎,这是结构性弱点,不是调参能救的。所以这个擂台真正测的是:<strong>你为之付费的"智能",在规则明确的小世界里值多少。</strong></p>
+      <p>AI 代打模式下,落子全自动:我们的页面把棋盘喂给你的模型、要求它返回坐标和理由,理由会显示在右侧。模型若给出非法坐标,有两次重试机会,仍失败按犯规处理(由系统代走最优一步并记录)。</p>
+      <p>战绩目前记在你本地浏览器。全球擂主战绩榜、真人房间、斗地主、以及「博主自己的 Claude Code 亲自守擂」——按计划逐步上。想催更或挑战规则,来 <a href="https://github.com/zhouguiyanguge-droid/triplebench-cn">GitHub</a> 提 issue。</p>
+    </section>
+  </main>
+
+  <canvas id="cardCanvas" width="1080" height="1440" style="display:none"></canvas>
+
+  <script is:inline>
+  (function(){
+  "use strict";
+  // ===== 基础 =====
+  var SIZE=15, EMPTY=0, BLACK=1, WHITE=2;
+  var board, moves, over, busy=false, abortFlag=false, mode="human";
+  var $=function(s){return document.querySelector(s)};
+  var boardEl=$("#board"), statusEl=$("#status"), logEl=$("#log");
+  var rec=JSON.parse(localStorage.getItem("ar_rec")||'{"w":0,"l":0,"d":0}');
+  function saveRec(){localStorage.setItem("ar_rec",JSON.stringify(rec));$("#rec-text").textContent=rec.w+" 胜 · "+rec.l+" 负 · "+rec.d+" 平";}
+  saveRec();
+
+  // ===== 棋盘 UI =====
+  var cells=[];
+  function buildBoard(){
+    boardEl.innerHTML="";cells=[];
+    for(var r=0;r<SIZE;r++)for(var c=0;c<SIZE;c++){
+      var d=document.createElement("button");
+      d.className="ar-cell";d.dataset.r=r;d.dataset.c=c;
+      d.addEventListener("click",onCellClick);
+      boardEl.appendChild(d);cells.push(d);
+    }
+  }
+  function render(lastIdx){
+    for(var i=0;i<225;i++){
+      var v=board[i];cells[i].className="ar-cell"+(v===BLACK?" s-b":v===WHITE?" s-w":"")+(i===lastIdx?" s-last":"");
+    }
+  }
+  function reset(){
+    board=new Array(225).fill(EMPTY);moves=[];over=false;abortFlag=false;
+    render(-1);logEl.innerHTML='<p class="ar-log-empty">对局进行中…</p>';
+    $("#btn-card").disabled=true;
+  }
+
+  // ===== 胜负 =====
+  function idx(r,c){return r*15+c}
+  function win(b,r,c,who){
+    var dirs=[[0,1],[1,0],[1,1],[1,-1]];
+    for(var d=0;d<4;d++){var n=1;
+      for(var s=1;s<5;s++){var rr=r+dirs[d][0]*s,cc=c+dirs[d][1]*s;if(rr<0||rr>14||cc<0||cc>14||b[idx(rr,cc)]!==who)break;n++;}
+      for(var s2=1;s2<5;s2++){var r2=r-dirs[d][0]*s2,c2=c-dirs[d][1]*s2;if(r2<0||r2>14||c2<0||c2>14||b[idx(r2,c2)]!==who)break;n++;}
+      if(n>=5)return true;}
+    return false;
+  }
+
+  // ===== 擂主引擎(启发式 + 两步看)=====
+  function lineInfo(b,r,c,dr,dc,who){
+    var n=1,openA=0,openB=0;
+    var rr=r+dr,cc=c+dc;
+    while(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===who){n++;rr+=dr;cc+=dc;}
+    if(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===EMPTY)openA=1;
+    rr=r-dr;cc=c-dc;
+    while(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===who){n++;rr-=dr;cc-=dc;}
+    if(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===EMPTY)openB=1;
+    return [n,openA+openB];
+  }
+  function placeScore(b,r,c,who){
+    var dirs=[[0,1],[1,0],[1,1],[1,-1]],total=0,bigThreats=0;
+    for(var d=0;d<4;d++){
+      var li=lineInfo(b,r,c,dirs[d][0],dirs[d][1],who),n=li[0],open=li[1],s=0;
+      if(n>=5)s=10000000;
+      else if(n===4)s=open===2?1000000:(open===1?120000:0);
+      else if(n===3)s=open===2?60000:(open===1?6000:0);
+      else if(n===2)s=open===2?1200:(open===1?150:0);
+      else s=open===2?60:10;
+      if(s>=60000)bigThreats++;
+      total+=s;
+    }
+    if(bigThreats>=2)total+=300000;
+    return total;
+  }
+  function candidates(b,cap){
+    var has=false,set=[],seen=new Array(225).fill(false);
+    for(var i=0;i<225;i++)if(b[i]!==EMPTY){has=true;
+      var r0=(i/15)|0,c0=i%15;
+      for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){
+        var r=r0+dr,c=c0+dc;
+        if(r<0||r>14||c<0||c>14)continue;
+        var j=idx(r,c);
+        if(b[j]===EMPTY&&!seen[j]){seen[j]=true;set.push(j);}
+      }}
+    if(!has)return [idx(7,7)];
+    set.sort(function(x,y){
+      var rx=(x/15)|0,cx=x%15,ry=(y/15)|0,cy=y%15;
+      return (placeScore(b,ry,cy,WHITE)+placeScore(b,ry,cy,BLACK))-(placeScore(b,rx,cx,WHITE)+placeScore(b,rx,cx,BLACK));
+    });
+    return set.slice(0,cap||14);
+  }
+  function bestMoveFor(b,who){ // 启发式最佳一步(也用于 LLM 犯规代走)
+    var opp=who===BLACK?WHITE:BLACK,cand=candidates(b,16),best=-1,bestS=-1;
+    for(var k=0;k<cand.length;k++){var j=cand[k],r=(j/15)|0,c=j%15;
+      if(placeScore(b,r,c,who)>=10000000)return j;}
+    for(var k2=0;k2<cand.length;k2++){var j2=cand[k2],r2=(j2/15)|0,c2=j2%15;
+      if(placeScore(b,r2,c2,opp)>=10000000){return j2;}}
+    for(var k3=0;k3<cand.length;k3++){
+      var j3=cand[k3],r3=(j3/15)|0,c3=j3%15;
+      var myS=placeScore(b,r3,c3,who)+0.9*placeScore(b,r3,c3,opp);
+      // 看一步对手最佳回应
+      b[j3]=who;
+      var reply=0,cand2=candidates(b,8);
+      for(var m=0;m<cand2.length;m++){var j4=cand2[m],r4=(j4/15)|0,c4=j4%15;
+        var s2=placeScore(b,r4,c4,opp)+0.9*placeScore(b,r4,c4,who);
+        if(s2>reply)reply=s2;}
+      b[j3]=EMPTY;
+      var total=myS-0.55*reply;
+      if(total>bestS){bestS=total;best=j3;}
+    }
+    return best;
+  }
+
+  // ===== 日志 =====
+  function log(html,cls){
+    var first=logEl.querySelector(".ar-log-empty");if(first)first.remove();
+    var p=document.createElement("div");p.className="ar-log-item"+(cls?" "+cls:"");p.innerHTML=html;
+    logEl.prepend(p);
+  }
+  function coordName(j){return "("+(((j/15)|0)+1)+"行"+(j%15+1)+"列)"}
+
+  // ===== 落子与回合 =====
+  function place(j,who){
+    board[j]=who;moves.push({j:j,who:who});render(j);
+    var r=(j/15)|0,c=j%15;
+    if(win(board,r,c,who)){endGame(who);return true;}
+    if(moves.length===225){endGame(0);return true;}
+    return false;
+  }
+  function endGame(who){
+    over=true;busy=false;abortFlag=false;
+    $("#btn-stop").disabled=true;$("#btn-start").disabled=false;$("#btn-card").disabled=false;
+    var msg;
+    if(who===0){msg="平局!";rec.d++;}
+    else if(mode==="watch"){msg=(who===BLACK?"黑方 AI":"白方 AI")+" 获胜!";}
+    else if(who===WHITE){msg="擂主获胜 🏆 if-else 又赢了";rec.w++;}
+    else{msg=(mode==="human"?"你":"你的 AI")+" 赢了擂主!👑 (截图战报卡炫耀一下?)";rec.l++;}
+    if(mode!=="watch")saveRec();
+    statusEl.textContent=msg;log("<b>"+msg+"</b> 共 "+moves.length+" 手","ar-li-end");
+  }
+
+  function onCellClick(e){
+    if(mode!=="human"||over||busy)return;
+    var j=(+e.currentTarget.dataset.r)*15+(+e.currentTarget.dataset.c);
+    if(board[j]!==EMPTY)return;
+    if(place(j,BLACK))return;
+    log("你落子 "+coordName(j));
+    busy=true;statusEl.textContent="擂主思考中…";
+    setTimeout(function(){
+      var m=bestMoveFor(board,WHITE);
+      busy=false;
+      if(place(m,WHITE))return;
+      log("擂主落子 "+coordName(m));
+      statusEl.textContent="轮到你了";
+    },260);
+  }
+
+  // ===== LLM 接入 =====
+  function boardText(){
+    var head="   ",r,c;
+    for(c=0;c<15;c++)head+=(c+1<10?" ":"")+(c+1)+" ";
+    var out=[head];
+    for(r=0;r<15;r++){var line=(r+1<10?" ":"")+(r+1)+" ";
+      for(c=0;c<15;c++){var v=board[idx(r,c)];line+=" "+(v===BLACK?"X":v===WHITE?"O":".")+" ";}
+      out.push(line);}
+    return out.join("\n");
+  }
+  function buildPrompt(who){
+    var me=who===BLACK?"X(黑)":"O(白)", last=moves.length?coordName(moves[moves.length-1].j):"无";
+    return "你在下五子棋,15x15 棋盘,行列编号都从 1 到 15。X 是黑,O 是白,. 是空位。五连即胜。\n"+
+      "你执 "+me+"。对方刚落子: "+last+"。当前棋盘:\n\n"+boardText()+"\n\n"+
+      "请选择你的下一步。优先:能成五连先成五连;对方将成五连必须堵。\n"+
+      '只返回一行 JSON,格式 {"row":行号,"col":列号,"reason":"不超过30字的理由"} ,行列号用 1 到 15,必须是空位,禁止其他文字。';
+  }
+  async function callLLM(cfg,prompt){
+    if(cfg.provider==="anthropic"){
+      var resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{
+        "content-type":"application/json","x-api-key":cfg.key,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"
+      },body:JSON.stringify({model:cfg.model,max_tokens:200,messages:[{role:"user",content:prompt}]})});
+      if(!resp.ok)throw new Error("Anthropic API "+resp.status+": "+(await resp.text()).slice(0,160));
+      var data=await resp.json();return data.content.map(function(b){return b.text||""}).join("");
+    }else{
+      var url="https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(cfg.model)+":generateContent?key="+encodeURIComponent(cfg.key);
+      var resp2=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1200}})});
+      if(!resp2.ok)throw new Error("Gemini API "+resp2.status+": "+(await resp2.text()).slice(0,160));
+      var d2=await resp2.json();
+      try{return d2.candidates[0].content.parts.map(function(p){return p.text||""}).join("");}
+      catch(e){throw new Error("Gemini 返回为空(可能触发安全过滤)");}
+    }
+  }
+  function parseMove(text){
+    var m=text.match(/\{[^{}]*\}/);if(!m)throw new Error("未找到 JSON");
+    var o=JSON.parse(m[0]);
+    var r=(o.row|0)-1,c=(o.col|0)-1;
+    if(r<0||r>14||c<0||c>14)throw new Error("坐标越界 row="+o.row+" col="+o.col);
+    if(board[idx(r,c)]!==EMPTY)throw new Error("("+o.row+","+o.col+") 已有棋子");
+    return {j:idx(r,c),reason:String(o.reason||"").slice(0,60)};
+  }
+  async function llmTurn(cfg,who,label){
+    var prompt=buildPrompt(who),lastErr="";
+    for(var t=0;t<3;t++){
+      if(abortFlag)throw new Error("__abort");
+      statusEl.textContent=label+" 思考中…"+(t?"(第"+(t+1)+"次尝试)":"");
+      var text;
+      try{text=await callLLM(cfg,prompt+(lastErr?"\n\n注意:你上次的回答无效("+lastErr+"),重新选一个合法空位。":""));}
+      catch(e){if(String(e.message).indexOf("__abort")>=0)throw e;throw new Error(label+" 调用失败:"+e.message);}
+      try{
+        var mv=parseMove(text);
+        log("<b>"+label+"</b> "+coordName(mv.j)+(mv.reason?'<br><span class="ar-reason">💭 '+escapeHtml(mv.reason)+"</span>":""));
+        return mv.j;
+      }catch(pe){lastErr=pe.message;log(label+" 出了个无效着法("+escapeHtml(pe.message)+"),重试…","ar-li-warn");}
+    }
+    var fb=bestMoveFor(board,who);
+    log("<b>"+label+" 犯规 3 次</b>,由系统代走 "+coordName(fb),"ar-li-warn");
+    return fb;
+  }
+  function escapeHtml(s){return s.replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
+
+  // ===== 配置读取 =====
+  function readCfg(blockSel){
+    var el=$(blockSel);
+    var cfg={provider:el.querySelector(".ai-provider").value,
+             model:el.querySelector(".ai-model").value.trim(),
+             key:el.querySelector(".ai-key").value.trim()};
+    if(!cfg.key)throw new Error("请先填 API Key");
+    if(!cfg.model)throw new Error("请先填模型名");
+    return cfg;
+  }
+  function persistKeys(){
+    try{
+      var a=$("#cfgA"),b=$("#cfgB");
+      localStorage.setItem("ar_keys",JSON.stringify({
+        aP:a.querySelector(".ai-provider").value,aM:a.querySelector(".ai-model").value,aK:a.querySelector(".ai-key").value,
+        bP:b.querySelector(".ai-provider").value,bM:b.querySelector(".ai-model").value,bK:b.querySelector(".ai-key").value}));
+    }catch(e){}
+  }
+  function restoreKeys(){
+    try{var s=JSON.parse(localStorage.getItem("ar_keys")||"null");if(!s)return;
+      var a=$("#cfgA"),b=$("#cfgB");
+      a.querySelector(".ai-provider").value=s.aP||"anthropic";a.querySelector(".ai-model").value=s.aM||"claude-haiku-4-5";a.querySelector(".ai-key").value=s.aK||"";
+      b.querySelector(".ai-provider").value=s.bP||"gemini";b.querySelector(".ai-model").value=s.bM||"gemini-2.5-flash";b.querySelector(".ai-key").value=s.bK||"";
+    }catch(e){}
+  }
+
+  // ===== 对局主循环 =====
+  async function runByok(){
+    var cfg;try{cfg=readCfg("#cfgA");}catch(e){statusEl.textContent=e.message;return;}
+    persistKeys();reset();busy=true;
+    $("#btn-start").disabled=true;$("#btn-stop").disabled=false;
+    try{
+      while(!over){
+        if(abortFlag)break;
+        var j=await llmTurn(cfg,BLACK,"你的 AI");
+        if(place(j,BLACK))break;
+        await sleep(350);
+        var m=bestMoveFor(board,WHITE);
+        if(place(m,WHITE))break;
+        log("擂主落子 "+coordName(m));
+      }
+    }catch(e){if(String(e.message).indexOf("__abort")<0){statusEl.textContent=e.message;log(escapeHtml(e.message),"ar-li-warn");}}
+    if(abortFlag&&!over){statusEl.textContent="已停止";}
+    busy=false;$("#btn-start").disabled=false;$("#btn-stop").disabled=true;
+  }
+  async function runWatch(){
+    var cfgA,cfgB;
+    try{cfgA=readCfg("#cfgA");cfgB=readCfg("#cfgB");}catch(e){statusEl.textContent=e.message;return;}
+    persistKeys();reset();busy=true;
+    $("#btn-start").disabled=true;$("#btn-stop").disabled=false;
+    try{
+      while(!over){
+        if(abortFlag)break;
+        var j=await llmTurn(cfgA,BLACK,"黑方 AI");
+        if(place(j,BLACK))break;
+        await sleep(400);
+        if(abortFlag)break;
+        var j2=await llmTurn(cfgB,WHITE,"白方 AI");
+        if(place(j2,WHITE))break;
+        await sleep(400);
+      }
+    }catch(e){if(String(e.message).indexOf("__abort")<0){statusEl.textContent=e.message;log(escapeHtml(e.message),"ar-li-warn");}}
+    if(abortFlag&&!over){statusEl.textContent="已停止";}
+    busy=false;$("#btn-start").disabled=false;$("#btn-stop").disabled=true;
+  }
+  function sleep(ms){return new Promise(function(res){setTimeout(res,ms)})}
+
+  // ===== 战报卡 =====
+  function drawCard(){
+    var cv=$("#cardCanvas"),x=cv.getContext("2d");
+    x.fillStyle="#101014";x.fillRect(0,0,1080,1440);
+    var g=x.createLinearGradient(0,0,1080,0);g.addColorStop(0,"#ea580c");g.addColorStop(1,"#f59e0b");
+    x.fillStyle=g;x.fillRect(0,0,1080,14);
+    x.fillStyle="#f59e0b";x.font="bold 44px sans-serif";x.fillText("AI 擂台 · 五子棋战报",60,110);
+    x.fillStyle="#fff";x.font="bold 64px sans-serif";
+    x.fillText(statusEl.textContent.slice(0,16),60,200);
+    x.fillStyle="#a1a1aa";x.font="32px sans-serif";
+    x.fillText("共 "+moves.length+" 手 · 模式:"+(mode==="human"?"真人挑战":mode==="byok"?"AI 代打":"AI 对战")+" · "+new Date().toLocaleDateString(),60,260);
+    // board
+    var bx=90,by=330,cell=60;
+    x.fillStyle="#d9b06b";x.fillRect(bx-30,by-30,cell*14+60,cell*14+60);
+    x.strokeStyle="#7c5a26";x.lineWidth=2;
+    for(var i=0;i<15;i++){
+      x.beginPath();x.moveTo(bx,by+i*cell);x.lineTo(bx+14*cell,by+i*cell);x.stroke();
+      x.beginPath();x.moveTo(bx+i*cell,by);x.lineTo(bx+i*cell,by+14*cell);x.stroke();
+    }
+    for(var k=0;k<moves.length;k++){
+      var mv=moves[k],r=(mv.j/15)|0,c=mv.j%15;
+      x.beginPath();x.arc(bx+c*cell,by+r*cell,24,0,7);
+      x.fillStyle=mv.who===BLACK?"#111":"#fafafa";x.fill();
+      x.strokeStyle="#333";x.lineWidth=1.5;x.stroke();
+      if(k===moves.length-1){x.strokeStyle="#ef4444";x.lineWidth=4;x.beginPath();x.arc(bx+c*cell,by+r*cell,28,0,7);x.stroke();}
+    }
+    x.fillStyle="#71717a";x.font="30px sans-serif";
+    x.fillText("黑 = 挑战方 · 白 = "+(mode==="watch"?"白方 AI":"擂主(规则引擎)"),60,1300);
+    x.fillStyle="#f59e0b";x.font="bold 34px sans-serif";
+    x.fillText("来挑战:sanmoshice.com/arena",60,1370);
+    var a=document.createElement("a");a.download="arena-"+Date.now()+".png";a.href=cv.toDataURL("image/png");a.click();
+  }
+
+  // ===== 模式切换 / 事件 =====
+  function setMode(m){
+    if(busy){abortFlag=true;}
+    mode=m;
+    document.querySelectorAll(".ar-tab").forEach(function(t){t.classList.toggle("on",t.dataset.mode===m)});
+    $("#cfg").style.display=m==="human"?"none":"block";
+    $("#cfgB").style.display=m==="watch"?"block":"none";
+    $("#cfgA-title").textContent=m==="watch"?"黑方 AI":"挑战方 AI(执黑)";
+    $("#btn-start").textContent=m==="human"?"重新开局":"开始对局";
+    reset();
+    statusEl.textContent=m==="human"?"你执黑先行,点击棋盘落子":"填好配置,点「开始对局」";
+  }
+  $("#mode-tabs").addEventListener("click",function(e){
+    var b=e.target.closest(".ar-tab");if(b)setMode(b.dataset.mode);
+  });
+  $("#btn-start").addEventListener("click",function(){
+    if(mode==="human"){reset();statusEl.textContent="你执黑先行,点击棋盘落子";}
+    else if(mode==="byok")runByok();
+    else runWatch();
+  });
+  $("#btn-stop").addEventListener("click",function(){abortFlag=true;$("#btn-stop").disabled=true;});
+  $("#btn-card").addEventListener("click",drawCard);
+
+  buildBoard();restoreKeys();setMode("human");
+  })();
+  </script>
+
+  <style>
+    .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
+    .tb-arena h1 { margin-bottom:.6rem; }
+    .ar-strip { display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; margin:1.4rem 0; }
+    .ar-rec { font-size:.9rem; color:#71717a; display:flex; flex-direction:column; }
+    .ar-rec b { font-size:1.15rem; color:#ea580c; }
+    .ar-modes { display:flex; gap:.5rem; }
+    .ar-tab { border:1px solid #e5e7eb; background:#fff; padding:.5rem .95rem; border-radius:999px; font-weight:700; cursor:pointer; font-size:.92rem; }
+    .ar-tab.on { background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; border-color:transparent; }
+    .ar-wrap { display:grid; grid-template-columns: minmax(300px,560px) minmax(260px,1fr); gap:1.2rem; align-items:start; }
+    @media (max-width:760px){ .ar-wrap { grid-template-columns:1fr; } }
+    .ar-board { display:grid; grid-template-columns:repeat(15,1fr); aspect-ratio:1; background:#d9b06b; border-radius:10px; padding:6px; box-shadow:0 10px 30px rgba(0,0,0,.15); }
+    .ar-cell { position:relative; border:none; background:
+      linear-gradient(#7c5a26,#7c5a26) center/100% 1.5px no-repeat,
+      linear-gradient(#7c5a26,#7c5a26) center/1.5px 100% no-repeat; cursor:pointer; padding:0; }
+    .ar-cell.s-b::after, .ar-cell.s-w::after { content:""; position:absolute; inset:12%; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,.4); animation:drop .18s ease-out; }
+    .ar-cell.s-b::after { background:radial-gradient(circle at 35% 30%, #555, #0a0a0a); }
+    .ar-cell.s-w::after { background:radial-gradient(circle at 35% 30%, #fff, #cfcfcf); }
+    .ar-cell.s-last::after { outline:3px solid #ef4444; outline-offset:1px; }
+    @keyframes drop { from { transform:scale(1.5); opacity:.4 } to { transform:scale(1); opacity:1 } }
+    .ar-under { display:flex; flex-wrap:wrap; gap:.7rem; justify-content:space-between; align-items:center; margin-top:.8rem; }
+    .ar-status { font-weight:700; color:#3f3f46; }
+    .ar-btns { display:flex; gap:.5rem; }
+    .ar-btn { border:1px solid #e5e7eb; background:#fff; padding:.5rem .9rem; border-radius:10px; font-weight:700; cursor:pointer; }
+    .ar-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .ar-btn-main { background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; border-color:transparent; }
+    .ar-cfg { border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.1rem; background:#fff; margin-bottom:1rem; display:none; }
+    .ar-cfg-block h4 { margin:.2rem 0 .5rem; }
+    .ar-cfg label { display:block; font-size:.85rem; color:#52525b; margin:.45rem 0; }
+    .ar-cfg input, .ar-cfg select { width:100%; box-sizing:border-box; margin-top:.25rem; padding:.5rem .6rem; border:1px solid #e5e7eb; border-radius:8px; font-size:.92rem; background:#fafafa; }
+    .ar-safe { font-size:.8rem; color:#71717a; line-height:1.7; margin:.7rem 0 0; }
+    .ar-logbox { border:1px solid #e5e7eb; border-radius:14px; padding:1rem 1.1rem; background:#fff; }
+    .ar-logbox h4 { margin:.2rem 0 .6rem; }
+    .ar-log { max-height:430px; overflow-y:auto; display:flex; flex-direction:column; gap:.45rem; }
+    .ar-log-item { font-size:.88rem; line-height:1.6; padding:.45rem .6rem; background:#fafafa; border-radius:8px; border-left:3px solid #e5e7eb; }
+    .ar-li-warn { border-left-color:#f59e0b; background:#fffbeb; }
+    .ar-li-end { border-left-color:#ea580c; background:#fff7ed; }
+    .ar-reason { color:#6d28d9; }
+    .ar-log-empty { color:#a1a1aa; font-size:.88rem; }
+    .ar-faq { margin-top:2.6rem; }
+    @media (prefers-color-scheme: dark) {
+      .ar-tab,.ar-btn,.ar-cfg,.ar-logbox { background:#18181b; border-color:#27272a; color:#e4e4e7; }
+      .ar-cfg input,.ar-cfg select { background:#27272a; border-color:#3f3f46; color:#e4e4e7; }
+      .ar-log-item { background:#27272a; border-left-color:#3f3f46; }
+      .ar-li-warn { background:#2a2010; } .ar-li-end { background:#2a1a10; }
+      .ar-status { color:#e4e4e7; }
+    }
+  </style>
+</BaseLayout>
