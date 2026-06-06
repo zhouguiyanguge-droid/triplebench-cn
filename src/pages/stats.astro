@@ -36,6 +36,9 @@ const sanmoTag = "aef5c25ae6974caa85fa9bba93e975ff";
         <div class="tb-card"><h3>热门页面 Top 10</h3><canvas id="c-pages" height="220"></canvas></div>
         <div class="tb-card"><h3>来源国家 Top 10</h3><canvas id="c-countries" height="220"></canvas></div>
       </div>
+      <div class="tb-card"><h3>分文章明细（近 7 天）</h3>
+        <table class="tb-table" id="t-pages"><thead><tr><th>页面</th><th>浏览 PV</th><th>访问次数</th></tr></thead><tbody></tbody></table>
+      </div>
     </div>
 
     <details class="tb-shortcuts">
@@ -77,6 +80,13 @@ const sanmoTag = "aef5c25ae6974caa85fa9bba93e975ff";
       new Chart(document.getElementById("c-countries"), { type: "bar",
         data: { labels: d.countries.map(x => x.country || "未知"), datasets: [{ data: d.countries.map(x => x.pv), backgroundColor: "#2563eb" }] },
         options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { grid: { color: grid }, beginAtZero: true }, y: { grid: { display: false } } } } });
+      const nameMap = {"/":"首页","/reports/":"全部文章","/reports/digital-human-pipeline/":"数字人生产线·求教","/reports/ai-video-pipeline/":"AI短片线·建造日志","/reports/codex-claude-gemini/":"run-001 三AI实测","/methodology/":"方法论","/manifesto/":"为什么做","/benchmarks/":"基准表"};
+      const tbody = document.querySelector("#t-pages tbody");
+      d.pages.filter(p => !(p.path||"").startsWith("/stats")).forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td><b>" + (nameMap[p.path] || "页面") + "</b><br><code>" + p.path + "</code></td><td>" + fmt(p.pv) + "</td><td>" + fmt(p.visits) + "</td>";
+        tbody.appendChild(tr);
+      });
     }
     function fail(msg, code) {
       document.getElementById("tb-loading").style.display = "none";
@@ -102,6 +112,11 @@ const sanmoTag = "aef5c25ae6974caa85fa9bba93e975ff";
     .tb-card { border:1px solid #e5e7eb; border-radius:14px; padding:1.2rem 1.4rem; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.05); margin:1rem 0; }
     .tb-card h3 { margin:0 0 .8rem; font-size:1.05rem; }
     .tb-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1rem; }
+    .tb-table { width:100%; border-collapse:collapse; font-size:.92rem; }
+    .tb-table th { text-align:left; color:#71717a; font-weight:600; padding:.45rem .6rem; border-bottom:2px solid #e5e7eb; }
+    .tb-table td { padding:.55rem .6rem; border-bottom:1px solid #f1f1f3; vertical-align:top; }
+    .tb-table td code { font-size:.78rem; color:#a1a1aa; }
+    .tb-table tr td:nth-child(2), .tb-table tr td:nth-child(3), .tb-table tr th:nth-child(2), .tb-table tr th:nth-child(3) { text-align:right; font-variant-numeric:tabular-nums; }
     .tb-shortcuts { margin:2rem 0 1rem; }
     .tb-shortcuts summary { cursor:pointer; color:#71717a; font-size:.9rem; }
     .tb-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.8rem; margin:1rem 0; }

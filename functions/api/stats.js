@@ -35,8 +35,9 @@ export async function onRequest(context) {
           dimensions { date }
           sum { visits }
         }
-        pages: rumPageloadEventsAdaptiveGroups(limit: 10, filter: { siteTag: $siteTag, date_geq: $start, date_leq: $end }, orderBy: [count_DESC]) {
+        pages: rumPageloadEventsAdaptiveGroups(limit: 15, filter: { siteTag: $siteTag, date_geq: $start, date_leq: $end }, orderBy: [count_DESC]) {
           count
+          sum { visits }
           dimensions { requestPath }
         }
         countries: rumPageloadEventsAdaptiveGroups(limit: 10, filter: { siteTag: $siteTag, date_geq: $start, date_leq: $end }, orderBy: [count_DESC]) {
@@ -69,7 +70,7 @@ export async function onRequest(context) {
   const totalPV = acct.total?.[0]?.count || 0;
   const totalVisits = acct.total?.[0]?.sum?.visits || 0;
   const daily = (acct.daily || []).map(d => ({ date: d.dimensions.date, pv: d.count, visits: d.sum?.visits || 0 }));
-  const pages = (acct.pages || []).map(p => ({ path: p.dimensions.requestPath, pv: p.count }));
+  const pages = (acct.pages || []).map(p => ({ path: p.dimensions.requestPath, pv: p.count, visits: p.sum?.visits || 0 }));
   const countries = (acct.countries || []).map(c => ({ country: c.dimensions.countryName, pv: c.count }));
 
   return j({ ok: true, range: { start, end, days }, totalPV, totalVisits, daily, pages, countries });
