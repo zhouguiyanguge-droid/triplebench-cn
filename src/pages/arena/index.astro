@@ -505,8 +505,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     if(!/^https?:\/\//i.test(v))throw new Error("Base URL 需要以 http:// 或 https:// 开头");
     return v;
   }
-  function mockLLM(prompt){
+  function mockSleep(ms){return new Promise(function(res){setTimeout(res,ms)})}
+  async function mockLLM(prompt){
     // 演示局的挑战方故意"降智":多数时候随机落子,擂主能快速终结,观感才像真实 LLM 翻车
+    await mockSleep(800+Math.random()*700); // 假思考延迟,让观众来得及读理由,录屏节奏也对
     var hasRetry=prompt.indexOf("上次的回答无效")>=0;
     if(MOCK_MODE&&moves.length===0&&!hasRetry)return '```json\n{"row":99,"col":1,"reason":"mock 首步故意越界"}\n```';
     var who=prompt.indexOf("你执 O")>=0?WHITE:BLACK;
