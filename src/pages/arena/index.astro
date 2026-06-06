@@ -44,10 +44,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
               <select class="ai-provider">
                 <option value="anthropic">Anthropic(Claude)</option>
                 <option value="gemini">Google(Gemini)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom-openai">自定义(OpenAI 兼容)</option>
               </select>
             </label>
             <label>模型 <input class="ai-model" type="text" value="claude-haiku-4-5" /></label>
+            <label class="ai-base-wrap" style="display:none">Base URL <input class="ai-base" type="url" placeholder="https://api.deepseek.com" autocomplete="off" /></label>
             <label>API Key <input class="ai-key" type="password" placeholder="sk-ant-..." autocomplete="off" /></label>
+            <p class="ar-provider-help"></p>
           </div>
           <div class="ar-cfg-block" id="cfgB" style="display:none">
             <h4>白方 AI</h4>
@@ -55,12 +59,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
               <select class="ai-provider">
                 <option value="gemini">Google(Gemini)</option>
                 <option value="anthropic">Anthropic(Claude)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom-openai">自定义(OpenAI 兼容)</option>
               </select>
             </label>
             <label>模型 <input class="ai-model" type="text" value="gemini-2.5-flash" /></label>
+            <label class="ai-base-wrap" style="display:none">Base URL <input class="ai-base" type="url" placeholder="https://api.deepseek.com" autocomplete="off" /></label>
             <label>API Key <input class="ai-key" type="password" placeholder="AIza..." autocomplete="off" /></label>
+            <p class="ar-provider-help"></p>
           </div>
-          <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
+          <p class="ar-safe">🆓 <strong>没有 key?</strong>Gemini 的 key 可以白嫖:打开 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> → Get API key,一分钟搞定,免费额度足够玩几十局。Anthropic 的 key 在 <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> 创建(需开通 API 充值)。OpenRouter 在 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> 建 key,Hermes / DeepSeek / Qwen / GLM / Llama 等几百个模型都在这,一个 key 全解锁。注意:ChatGPT / Claude 的网页订阅账号≠API key,接不进来。</p>
+          <p class="ar-safe">🇨🇳 国内模型优先走 OpenRouter;如果厂商提供 OpenAI 兼容接口,也可以选「自定义」填 Base URL。若浏览器直连被 CORS 拦住,同款模型换 OpenRouter 最稳。</p>
           <p class="ar-safe">🔒 Key 只保存在<strong>你自己的浏览器</strong>(localStorage),对局时由你的浏览器<strong>直连官方 API</strong>,不经过本站服务器——本站是纯静态页,想收也收不到。建议用单独的低额度 key。调用费用由 key 所有者承担,一局约几分钱。</p>
         </div>
         <div class="ar-logbox">
@@ -72,8 +81,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
     <section class="ar-faq">
       <h2>这个擂台是怎么回事</h2>
-      <p><strong>擂主不是 AI,是算法。</strong>一段约三百行的 JavaScript:扫描棋型、算分、看两步。它不思考、不犹豫、不收订阅费。而大语言模型下棋是出了名的菜——它是语言模型,不是搜索引擎,这是结构性弱点,不是调参能救的。所以这个擂台真正测的是:<strong>你为之付费的"智能",在规则明确的小世界里值多少。</strong></p>
-      <p>AI 代打模式下,落子全自动:我们的页面把棋盘喂给你的模型、要求它返回坐标和理由,理由会显示在右侧。模型若给出非法坐标,有两次重试机会,仍失败按犯规处理(由系统代走最优一步并记录)。</p>
+      <p><strong>擂主不是 AI,是算法。</strong>一段约三百行的 JavaScript:扫描棋型、算分、看两步。它不思考、不犹豫、不收订阅费。本擂台采用<strong>自由规则五子棋</strong>:不设禁手,黑白双方只要在横、竖、斜任一方向形成连续五子或五子以上(长连),均立即判胜。而大语言模型下棋是出了名的菜——它是语言模型,不是搜索引擎,这是结构性弱点,不是调参能救的。所以这个擂台真正测的是:<strong>你为之付费的"智能",在规则明确的小世界里值多少。</strong></p>
+      <p>AI 代打模式下,落子全自动:我们的页面把棋盘喂给你的模型、要求它返回坐标和理由,理由会显示在右侧。模型若给出非法坐标,默认有三次机会,每次重试都会附带当前合法空位提示;仍失败按犯规处理(由系统代走最优一步并记录)。</p>
       <p>战绩目前记在你本地浏览器。全球擂主战绩榜、真人房间、斗地主、以及「博主自己的 Claude Code 亲自守擂」——按计划逐步上。想催更或挑战规则,来 <a href="https://github.com/zhouguiyanguge-droid/triplebench-cn">GitHub</a> 提 issue。</p>
     </section>
   </main>
@@ -83,9 +92,124 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   <script is:inline>
   (function(){
   "use strict";
+  // ===== ArenaEngine START =====
+  var ArenaEngine=(function(){
+    var SIZE=15, EMPTY=0, BLACK=1, WHITE=2;
+    function idx(r,c){return r*SIZE+c}
+    function rc(j){return [(j/SIZE)|0,j%SIZE]}
+    function inBounds(r,c){return r>=0&&r<SIZE&&c>=0&&c<SIZE}
+    function emptyBoard(){return new Array(SIZE*SIZE).fill(EMPTY)}
+    function legalMoves(b){
+      var out=[];
+      for(var i=0;i<SIZE*SIZE;i++)if(b[i]===EMPTY)out.push(i);
+      return out;
+    }
+    function isFull(b){return legalMoves(b).length===0}
+    function checkWin(b,r,c,who){
+      var dirs=[[0,1],[1,0],[1,1],[1,-1]];
+      for(var d=0;d<dirs.length;d++){
+        var n=1,dr=dirs[d][0],dc=dirs[d][1],s,rr,cc;
+        for(s=1;s<SIZE;s++){rr=r+dr*s;cc=c+dc*s;if(!inBounds(rr,cc)||b[idx(rr,cc)]!==who)break;n++;}
+        for(s=1;s<SIZE;s++){rr=r-dr*s;cc=c-dc*s;if(!inBounds(rr,cc)||b[idx(rr,cc)]!==who)break;n++;}
+        if(n>=5)return true;
+      }
+      return false;
+    }
+    function lineInfo(b,r,c,dr,dc,who){
+      var n=1,openA=0,openB=0,rr=r+dr,cc=c+dc;
+      while(inBounds(rr,cc)&&b[idx(rr,cc)]===who){n++;rr+=dr;cc+=dc;}
+      if(inBounds(rr,cc)&&b[idx(rr,cc)]===EMPTY)openA=1;
+      rr=r-dr;cc=c-dc;
+      while(inBounds(rr,cc)&&b[idx(rr,cc)]===who){n++;rr-=dr;cc-=dc;}
+      if(inBounds(rr,cc)&&b[idx(rr,cc)]===EMPTY)openB=1;
+      return [n,openA+openB];
+    }
+    function placeScore(b,r,c,who){
+      if(!inBounds(r,c)||b[idx(r,c)]!==EMPTY)return -1;
+      var dirs=[[0,1],[1,0],[1,1],[1,-1]],total=0,bigThreats=0;
+      for(var d=0;d<dirs.length;d++){
+        var li=lineInfo(b,r,c,dirs[d][0],dirs[d][1],who),n=li[0],open=li[1],s=0;
+        if(n>=5)s=10000000;
+        else if(n===4)s=open===2?1000000:(open===1?120000:0);
+        else if(n===3)s=open===2?60000:(open===1?6000:0);
+        else if(n===2)s=open===2?1200:(open===1?150:0);
+        else s=open===2?60:10;
+        if(s>=60000)bigThreats++;
+        total+=s;
+      }
+      if(bigThreats>=2)total+=300000;
+      return total;
+    }
+    function candidates(b,cap){
+      var has=false,set=[],seen=new Array(SIZE*SIZE).fill(false),i,r0,c0,dr,dc,r,c,j;
+      for(i=0;i<SIZE*SIZE;i++)if(b[i]!==EMPTY){
+        has=true;r0=(i/SIZE)|0;c0=i%SIZE;
+        for(dr=-2;dr<=2;dr++)for(dc=-2;dc<=2;dc++){
+          r=r0+dr;c=c0+dc;
+          if(!inBounds(r,c))continue;
+          j=idx(r,c);
+          if(b[j]===EMPTY&&!seen[j]){seen[j]=true;set.push(j);}
+        }
+      }
+      if(!has)return [idx(7,7)];
+      set.sort(function(x,y){
+        var rx=(x/SIZE)|0,cx=x%SIZE,ry=(y/SIZE)|0,cy=y%SIZE;
+        return (placeScore(b,ry,cy,WHITE)+placeScore(b,ry,cy,BLACK))-(placeScore(b,rx,cx,WHITE)+placeScore(b,rx,cx,BLACK));
+      });
+      return typeof cap==="number"?set.slice(0,cap):set;
+    }
+    function immediateWinsAfter(b,who,cap){
+      var cand=candidates(b,cap||24),wins=[],k,j,r,c;
+      for(k=0;k<cand.length;k++){
+        j=cand[k];r=(j/SIZE)|0;c=j%SIZE;
+        if(placeScore(b,r,c,who)>=10000000)wins.push(j);
+      }
+      return wins;
+    }
+    function bestMoveFor(b,who){
+      var opp=who===BLACK?WHITE:BLACK,cand=candidates(b,18),best=-1,bestS=-Infinity,k,j,r,c,myS,cand2,m,j4,r4,c4,s2,reply,total,threats;
+      if(cand.length===0)return -1;
+      for(k=0;k<cand.length;k++){j=cand[k];r=(j/SIZE)|0;c=j%SIZE;if(placeScore(b,r,c,who)>=10000000)return j;}
+      for(k=0;k<cand.length;k++){j=cand[k];r=(j/SIZE)|0;c=j%SIZE;if(placeScore(b,r,c,opp)>=10000000)return j;}
+      for(k=0;k<cand.length;k++){
+        j=cand[k];r=(j/SIZE)|0;c=j%SIZE;
+        myS=placeScore(b,r,c,who)+0.92*placeScore(b,r,c,opp);
+        b[j]=who;
+        threats=immediateWinsAfter(b,who,18).length;
+        reply=0;cand2=candidates(b,10);
+        for(m=0;m<cand2.length;m++){
+          j4=cand2[m];r4=(j4/SIZE)|0;c4=j4%SIZE;
+          s2=placeScore(b,r4,c4,opp)+0.9*placeScore(b,r4,c4,who);
+          if(s2>reply)reply=s2;
+        }
+        b[j]=EMPTY;
+        total=myS-0.55*reply+(threats>=2?650000:0);
+        if(total>bestS){bestS=total;best=j;}
+      }
+      return best;
+    }
+    function legalHint(b,limit){
+      return candidates(b,limit||16).map(function(j){var p=rc(j);return (p[0]+1)+"行"+(p[1]+1)+"列";}).join("、");
+    }
+    return {
+      SIZE:SIZE,EMPTY:EMPTY,BLACK:BLACK,WHITE:WHITE,idx:idx,rc:rc,inBounds:inBounds,emptyBoard:emptyBoard,
+      legalMoves:legalMoves,isFull:isFull,checkWin:checkWin,lineInfo:lineInfo,placeScore:placeScore,
+      candidates:candidates,immediateWinsAfter:immediateWinsAfter,bestMoveFor:bestMoveFor,legalHint:legalHint
+    };
+  })();
+  // ===== ArenaEngine END =====
+
   // ===== 基础 =====
-  var SIZE=15, EMPTY=0, BLACK=1, WHITE=2;
-  var board, moves, over, busy=false, abortFlag=false, mode="human";
+  var SIZE=ArenaEngine.SIZE, EMPTY=ArenaEngine.EMPTY, BLACK=ArenaEngine.BLACK, WHITE=ArenaEngine.WHITE;
+  var API_TIMEOUT_MS=30000, FOUL_LIMIT=3, FOUL_POLICY="system_move"; // 可改为 "loss": LLM 犯规即判负
+  var MOCK_MODE=new URLSearchParams(location.search).get("mock")==="1";
+  var PROVIDERS={
+    anthropic:{protocol:"anthropic",model:"claude-haiku-4-5",keyPlaceholder:"sk-ant-...",help:'Anthropic Console 创建 API key;浏览器直连需要官方 CORS 许可头。'},
+    gemini:{protocol:"gemini",model:"gemini-2.5-flash",keyPlaceholder:"AIza...",help:'Google AI Studio 创建 API key,免费额度适合试打。'},
+    openrouter:{protocol:"openai-compatible",model:"deepseek/deepseek-chat",keyPlaceholder:"sk-or-...",baseURL:"https://openrouter.ai/api/v1",help:'OpenRouter: Hermes / DeepSeek / Qwen / GLM / Llama 等几百个模型都在这,一个 key 全解锁。'},
+    "custom-openai":{protocol:"openai-compatible",model:"deepseek-chat",keyPlaceholder:"sk-...",baseURL:"https://api.deepseek.com",customBase:true,help:'自定义 OpenAI 兼容接口:填厂商 Base URL,页面会调用 {baseURL}/chat/completions。若 CORS 失败,换 OpenRouter 接入同款模型最稳。'}
+  };
+  var board, moves, over, busy=false, abortFlag=false, mode="human", gameId=0, activeAbort=null;
   var $=function(s){return document.querySelector(s)};
   var boardEl=$("#board"), statusEl=$("#status"), logEl=$("#log");
   var rec=JSON.parse(localStorage.getItem("ar_rec")||'{"w":0,"l":0,"d":0}');
@@ -109,86 +233,15 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }
   }
   function reset(){
-    board=new Array(225).fill(EMPTY);moves=[];over=false;abortFlag=false;
+    board=ArenaEngine.emptyBoard();moves=[];over=false;abortFlag=false;
     render(-1);logEl.innerHTML='<p class="ar-log-empty">棋盘已就绪。</p>';
     $("#btn-card").disabled=true;
   }
 
   // ===== 胜负 =====
-  function idx(r,c){return r*15+c}
-  function win(b,r,c,who){
-    var dirs=[[0,1],[1,0],[1,1],[1,-1]];
-    for(var d=0;d<4;d++){var n=1;
-      for(var s=1;s<5;s++){var rr=r+dirs[d][0]*s,cc=c+dirs[d][1]*s;if(rr<0||rr>14||cc<0||cc>14||b[idx(rr,cc)]!==who)break;n++;}
-      for(var s2=1;s2<5;s2++){var r2=r-dirs[d][0]*s2,c2=c-dirs[d][1]*s2;if(r2<0||r2>14||c2<0||c2>14||b[idx(r2,c2)]!==who)break;n++;}
-      if(n>=5)return true;}
-    return false;
-  }
-
-  // ===== 擂主引擎(启发式 + 两步看)=====
-  function lineInfo(b,r,c,dr,dc,who){
-    var n=1,openA=0,openB=0;
-    var rr=r+dr,cc=c+dc;
-    while(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===who){n++;rr+=dr;cc+=dc;}
-    if(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===EMPTY)openA=1;
-    rr=r-dr;cc=c-dc;
-    while(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===who){n++;rr-=dr;cc-=dc;}
-    if(rr>=0&&rr<15&&cc>=0&&cc<15&&b[idx(rr,cc)]===EMPTY)openB=1;
-    return [n,openA+openB];
-  }
-  function placeScore(b,r,c,who){
-    var dirs=[[0,1],[1,0],[1,1],[1,-1]],total=0,bigThreats=0;
-    for(var d=0;d<4;d++){
-      var li=lineInfo(b,r,c,dirs[d][0],dirs[d][1],who),n=li[0],open=li[1],s=0;
-      if(n>=5)s=10000000;
-      else if(n===4)s=open===2?1000000:(open===1?120000:0);
-      else if(n===3)s=open===2?60000:(open===1?6000:0);
-      else if(n===2)s=open===2?1200:(open===1?150:0);
-      else s=open===2?60:10;
-      if(s>=60000)bigThreats++;
-      total+=s;
-    }
-    if(bigThreats>=2)total+=300000;
-    return total;
-  }
-  function candidates(b,cap){
-    var has=false,set=[],seen=new Array(225).fill(false);
-    for(var i=0;i<225;i++)if(b[i]!==EMPTY){has=true;
-      var r0=(i/15)|0,c0=i%15;
-      for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){
-        var r=r0+dr,c=c0+dc;
-        if(r<0||r>14||c<0||c>14)continue;
-        var j=idx(r,c);
-        if(b[j]===EMPTY&&!seen[j]){seen[j]=true;set.push(j);}
-      }}
-    if(!has)return [idx(7,7)];
-    set.sort(function(x,y){
-      var rx=(x/15)|0,cx=x%15,ry=(y/15)|0,cy=y%15;
-      return (placeScore(b,ry,cy,WHITE)+placeScore(b,ry,cy,BLACK))-(placeScore(b,rx,cx,WHITE)+placeScore(b,rx,cx,BLACK));
-    });
-    return set.slice(0,cap||14);
-  }
-  function bestMoveFor(b,who){ // 启发式最佳一步(也用于 LLM 犯规代走)
-    var opp=who===BLACK?WHITE:BLACK,cand=candidates(b,16),best=-1,bestS=-1;
-    for(var k=0;k<cand.length;k++){var j=cand[k],r=(j/15)|0,c=j%15;
-      if(placeScore(b,r,c,who)>=10000000)return j;}
-    for(var k2=0;k2<cand.length;k2++){var j2=cand[k2],r2=(j2/15)|0,c2=j2%15;
-      if(placeScore(b,r2,c2,opp)>=10000000){return j2;}}
-    for(var k3=0;k3<cand.length;k3++){
-      var j3=cand[k3],r3=(j3/15)|0,c3=j3%15;
-      var myS=placeScore(b,r3,c3,who)+0.9*placeScore(b,r3,c3,opp);
-      // 看一步对手最佳回应
-      b[j3]=who;
-      var reply=0,cand2=candidates(b,8);
-      for(var m=0;m<cand2.length;m++){var j4=cand2[m],r4=(j4/15)|0,c4=j4%15;
-        var s2=placeScore(b,r4,c4,opp)+0.9*placeScore(b,r4,c4,who);
-        if(s2>reply)reply=s2;}
-      b[j3]=EMPTY;
-      var total=myS-0.55*reply;
-      if(total>bestS){bestS=total;best=j3;}
-    }
-    return best;
-  }
+  function idx(r,c){return ArenaEngine.idx(r,c)}
+  function win(b,r,c,who){return ArenaEngine.checkWin(b,r,c,who)}
+  function bestMoveFor(b,who){return ArenaEngine.bestMoveFor(b,who)}
 
   // ===== 日志 =====
   function log(html,cls){
@@ -200,6 +253,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
   // ===== 落子与回合 =====
   function place(j,who){
+    if(over||j<0||j>=225||board[j]!==EMPTY)return false;
     board[j]=who;moves.push({j:j,who:who});render(j);
     var r=(j/15)|0,c=j%15;
     if(win(board,r,c,who)){endGame(who);return true;}
@@ -222,15 +276,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     if(mode!=="human"||over||busy)return;
     var j=(+e.currentTarget.dataset.r)*15+(+e.currentTarget.dataset.c);
     if(board[j]!==EMPTY)return;
-    if(place(j,BLACK))return;
+    busy=true;
+    if(place(j,BLACK)){busy=false;return;}
     log("你落子 "+coordName(j));
-    busy=true;statusEl.textContent="擂主思考中…";
+    statusEl.textContent="擂主思考中…";
+    var myGame=gameId;
     setTimeout(function(){
+      if(!isActive(myGame)||over)return;
       var m=bestMoveFor(board,WHITE);
-      busy=false;
-      if(place(m,WHITE))return;
+      if(place(m,WHITE)){busy=false;return;}
       log("擂主落子 "+coordName(m));
-      statusEl.textContent="轮到你了";
+      busy=false;statusEl.textContent="轮到你了";
     },260);
   }
 
@@ -247,53 +303,158 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   function buildPrompt(who){
     var me=who===BLACK?"X(黑)":"O(白)", last=moves.length?coordName(moves[moves.length-1].j):"无";
     return "你在下五子棋,15x15 棋盘,行列编号都从 1 到 15。X 是黑,O 是白,. 是空位。五连即胜。\n"+
+      "规则:自由规则五子棋,无禁手;连续五子或五子以上(长连)都算胜利。\n"+
       "你执 "+me+"。对方刚落子: "+last+"。当前棋盘:\n\n"+boardText()+"\n\n"+
       "请选择你的下一步。优先:能成五连先成五连;对方将成五连必须堵。\n"+
       '只返回一行 JSON,格式 {"row":行号,"col":列号,"reason":"不超过30字的理由"} ,行列号用 1 到 15,必须是空位,禁止其他文字。';
   }
-  async function callLLM(cfg,prompt){
+  function retryPrompt(prompt,lastErr){
+    return prompt+"\n\n注意:你上次的回答无效("+lastErr+"),请重新选一个合法空位。当前推荐合法空位示例: "+ArenaEngine.legalHint(board,18)+"。仍然只返回一个 JSON。";
+  }
+  async function fetchWithTimeout(url,options,signal,provider){
+    var ctl=new AbortController(),timer=setTimeout(function(){ctl.abort();},API_TIMEOUT_MS),onAbort=function(){ctl.abort();};
+    if(signal)signal.addEventListener("abort",onAbort,{once:true});
+    try{
+      var opts={};for(var k in options)opts[k]=options[k];
+      opts.signal=ctl.signal;
+      return await fetch(url,opts);
+    }catch(e){
+      if(signal&&signal.aborted)throw new Error("__abort");
+      if(ctl.signal.aborted)throw new Error("请求超时(30 秒),可以稍后重试");
+      if(provider==="custom-openai")throw new Error("网络或 CORS 失败:该厂商可能不允许浏览器直连(CORS),换 OpenRouter 接入同款模型最稳");
+      throw new Error("网络或 CORS 失败:浏览器直连官方 API 未连通,请检查网络、服务商是否允许浏览器直连");
+    }finally{
+      clearTimeout(timer);
+      if(signal)signal.removeEventListener("abort",onAbort);
+    }
+  }
+  async function apiFetch(provider,url,options,signal){
+    for(var attempt=0;attempt<2;attempt++){
+      var resp=await fetchWithTimeout(url,options,signal,provider);
+      if(resp.status===429&&attempt===0){
+        await sleep(900,signal);
+        continue;
+      }
+      if(!resp.ok){
+        var body=(await resp.text()).slice(0,220),prefix=providerName(provider),msg;
+        if(resp.status===401||resp.status===403)msg=prefix+" key 无效或权限不足("+resp.status+"),请检查 API key / 账号额度 / 模型权限";
+        else if(resp.status===429)msg=prefix+" 限流或额度用尽(429),已退避重试 1 次仍失败";
+        else msg=prefix+" API 返回 "+resp.status+": "+body;
+        throw new Error(msg);
+      }
+      return resp;
+    }
+    throw new Error("API 限流,已退避重试 1 次仍失败");
+  }
+  function providerName(provider){
+    return provider==="anthropic"?"Anthropic":provider==="gemini"?"Gemini":provider==="openrouter"?"OpenRouter":"自定义接口";
+  }
+  async function callLLM(cfg,prompt,signal){
+    if(MOCK_MODE)return mockLLM(prompt);
     if(cfg.provider==="anthropic"){
-      var resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{
+      var resp=await apiFetch("anthropic","https://api.anthropic.com/v1/messages",{method:"POST",headers:{
         "content-type":"application/json","x-api-key":cfg.key,
         "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"
-      },body:JSON.stringify({model:cfg.model,max_tokens:200,messages:[{role:"user",content:prompt}]})});
-      if(!resp.ok)throw new Error("Anthropic API "+resp.status+": "+(await resp.text()).slice(0,160));
+      },body:JSON.stringify({model:cfg.model,max_tokens:240,messages:[{role:"user",content:prompt}]})},signal);
       var data=await resp.json();return data.content.map(function(b){return b.text||""}).join("");
-    }else{
+    }else if(cfg.provider==="gemini"){
       var url="https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(cfg.model)+":generateContent?key="+encodeURIComponent(cfg.key);
-      var resp2=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1200}})});
-      if(!resp2.ok)throw new Error("Gemini API "+resp2.status+": "+(await resp2.text()).slice(0,160));
+      var resp2=await apiFetch("gemini",url,{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:400}})},signal);
       var d2=await resp2.json();
       try{return d2.candidates[0].content.parts.map(function(p){return p.text||""}).join("");}
       catch(e){throw new Error("Gemini 返回为空(可能触发安全过滤)");}
     }
+    var base=cfg.provider==="openrouter"?"https://openrouter.ai/api/v1":normalizeBaseURL(cfg.baseURL);
+    var headers={"content-type":"application/json","Authorization":"Bearer "+cfg.key};
+    if(cfg.provider==="openrouter"){
+      headers["HTTP-Referer"]="https://sanmoshice.com";
+      headers["X-Title"]="TripleBench Arena";
+      headers["X-OpenRouter-Title"]="TripleBench Arena";
+    }
+    // TODO: 若国内厂商浏览器直连持续被 CORS 拦截,可考虑显式 opt-in 的 Pages Function 中转;本期不实现服务器中转。
+    var resp3=await apiFetch(cfg.provider,base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",headers:headers,
+      body:JSON.stringify({model:cfg.model,messages:[{role:"user",content:prompt}],max_tokens:240,temperature:0.2})},signal);
+    var d3=await resp3.json();
+    try{return d3.choices[0].message.content||"";}
+    catch(e2){throw new Error(providerName(cfg.provider)+" 返回为空或不符合 OpenAI chat completions 格式");}
   }
+  function normalizeBaseURL(raw){
+    var v=String(raw||"").trim();
+    if(!v)throw new Error("请先填 Base URL");
+    v=v.replace(/\/+$/,"");
+    if(/\/chat\/completions$/.test(v))v=v.replace(/\/chat\/completions$/,"");
+    if(!/^https?:\/\//i.test(v))throw new Error("Base URL 需要以 http:// 或 https:// 开头");
+    return v;
+  }
+  function mockLLM(prompt){
+    var hasRetry=prompt.indexOf("上次的回答无效")>=0;
+    if(MOCK_MODE&&moves.length===0&&!hasRetry)return '```json\n{"row":99,"col":1,"reason":"mock 首步故意越界"}\n```';
+    var who=prompt.indexOf("你执 O")>=0?WHITE:BLACK;
+    var j=bestMoveFor(board,who);
+    if(j<0)j=ArenaEngine.legalMoves(board)[0];
+    var p=ArenaEngine.rc(j);
+    return JSON.stringify({row:p[0]+1,col:p[1]+1,reason:hasRetry?"mock 重试后合法落子":"mock 合法落子"});
+  }
+  // ===== LLMTools START =====
+  var LLMTools=(function(){
+    function extractJsonObjects(text){
+      var out=[],depth=0,start=-1,inStr=false,esc=false,i,ch;
+      text=String(text||"");
+      for(i=0;i<text.length;i++){
+        ch=text[i];
+        if(inStr){
+          if(esc){esc=false;continue;}
+          if(ch==="\\"){esc=true;continue;}
+          if(ch==='"')inStr=false;
+          continue;
+        }
+        if(ch==='"'){inStr=true;continue;}
+        if(ch==="{"){if(depth===0)start=i;depth++;}
+        else if(ch==="}"&&depth>0){depth--;if(depth===0&&start>=0){out.push(text.slice(start,i+1));start=-1;}}
+      }
+      return out;
+    }
+    function parseMoveText(text,opts){
+      var chunks=extractJsonObjects(text),o,r,c;
+      if(chunks.length===0)throw new Error("未找到 JSON");
+      if(chunks.length>1)throw new Error("返回了多个 JSON 对象,只能返回一个");
+      try{o=JSON.parse(chunks[0]);}catch(e){throw new Error("JSON 无法解析:"+e.message);}
+      if(!o||typeof o!=="object"||Array.isArray(o))throw new Error("JSON 必须是对象");
+      if(!Number.isInteger(o.row)||!Number.isInteger(o.col))throw new Error("row/col 必须是整数数字");
+      r=o.row-1;c=o.col-1;
+      if(r<0||r>=opts.size||c<0||c>=opts.size)throw new Error("坐标越界 row="+o.row+" col="+o.col);
+      if(!opts.isEmpty(r,c))throw new Error("("+o.row+","+o.col+") 已有棋子");
+      return {j:opts.toIndex(r,c),reason:String(o.reason||"").slice(0,60)};
+    }
+    return {extractJsonObjects:extractJsonObjects,parseMoveText:parseMoveText};
+  })();
+  // ===== LLMTools END =====
   function parseMove(text){
-    var m=text.match(/\{[^{}]*\}/);if(!m)throw new Error("未找到 JSON");
-    var o=JSON.parse(m[0]);
-    var r=(o.row|0)-1,c=(o.col|0)-1;
-    if(r<0||r>14||c<0||c>14)throw new Error("坐标越界 row="+o.row+" col="+o.col);
-    if(board[idx(r,c)]!==EMPTY)throw new Error("("+o.row+","+o.col+") 已有棋子");
-    return {j:idx(r,c),reason:String(o.reason||"").slice(0,60)};
+    return LLMTools.parseMoveText(text,{size:SIZE,isEmpty:function(r,c){return board[idx(r,c)]===EMPTY;},toIndex:idx});
   }
-  async function llmTurn(cfg,who,label){
+  async function llmTurn(cfg,who,label,myGame){
     var prompt=buildPrompt(who),lastErr="";
-    for(var t=0;t<3;t++){
-      if(abortFlag)throw new Error("__abort");
+    for(var t=0;t<FOUL_LIMIT;t++){
+      if(!isActive(myGame)||abortFlag)throw new Error("__abort");
       statusEl.textContent=label+" 思考中…"+(t?"(第"+(t+1)+"次尝试)":"");
       var text;
-      try{text=await callLLM(cfg,prompt+(lastErr?"\n\n注意:你上次的回答无效("+lastErr+"),重新选一个合法空位。":""));}
+      try{text=await callLLM(cfg,lastErr?retryPrompt(prompt,lastErr):prompt,activeAbort&&activeAbort.signal);}
       catch(e){if(String(e.message).indexOf("__abort")>=0)throw e;throw new Error(label+" 调用失败:"+e.message);}
+      if(!isActive(myGame))throw new Error("__abort");
       try{
         var mv=parseMove(text);
         log("<b>"+label+"</b> "+coordName(mv.j)+(mv.reason?'<br><span class="ar-reason">💭 '+escapeHtml(mv.reason)+"</span>":""));
-        return mv.j;
+        return {j:mv.j,forced:false,forfeit:false};
       }catch(pe){lastErr=pe.message;log(label+" 出了个无效着法("+escapeHtml(pe.message)+"),重试…","ar-li-warn");}
     }
+    if(FOUL_POLICY==="loss"){
+      log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,按配置判负","ar-li-warn");
+      return {j:-1,forced:false,forfeit:true};
+    }
     var fb=bestMoveFor(board,who);
-    log("<b>"+label+" 犯规 3 次</b>,由系统代走 "+coordName(fb),"ar-li-warn");
-    return fb;
+    log("<b>"+label+" 犯规 "+FOUL_LIMIT+" 次</b>,由系统代走 "+coordName(fb),"ar-li-warn");
+    return {j:fb,forced:true,forfeit:false};
   }
   function escapeHtml(s){return s.replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]})}
 
@@ -302,67 +463,122 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     var el=$(blockSel);
     var cfg={provider:el.querySelector(".ai-provider").value,
              model:el.querySelector(".ai-model").value.trim(),
-             key:el.querySelector(".ai-key").value.trim()};
-    if(!cfg.key)throw new Error("请先填 API Key");
+             key:el.querySelector(".ai-key").value.trim(),
+             baseURL:(el.querySelector(".ai-base")&&el.querySelector(".ai-base").value.trim())||""};
+    if(!cfg.key&&!MOCK_MODE)throw new Error("请先填 API Key");
     if(!cfg.model)throw new Error("请先填模型名");
+    if(cfg.provider==="custom-openai")normalizeBaseURL(cfg.baseURL);
     return cfg;
+  }
+  function updateProviderBlock(el,keepModel){
+    var provider=el.querySelector(".ai-provider").value;
+    var meta=PROVIDERS[provider]||PROVIDERS.anthropic;
+    var modelEl=el.querySelector(".ai-model"),keyEl=el.querySelector(".ai-key"),baseWrap=el.querySelector(".ai-base-wrap"),baseEl=el.querySelector(".ai-base"),helpEl=el.querySelector(".ar-provider-help");
+    if(!keepModel)modelEl.value=meta.model;
+    modelEl.placeholder=meta.model;
+    keyEl.placeholder=meta.keyPlaceholder;
+    if(baseWrap)baseWrap.style.display=meta.customBase?"block":"none";
+    if(baseEl){
+      baseEl.placeholder=meta.baseURL||"https://api.deepseek.com";
+      if(!keepModel&&meta.customBase)baseEl.value=meta.baseURL||"";
+    }
+    if(helpEl)helpEl.innerHTML=escapeHtml(meta.help)+(MOCK_MODE?' <strong>当前为 mock 模式,不会调用真实 API。</strong>':'');
+  }
+  function wireProviderUI(){
+    ["#cfgA","#cfgB"].forEach(function(sel){
+      var el=$(sel);
+      el.querySelector(".ai-provider").addEventListener("change",function(){updateProviderBlock(el,false);});
+    });
   }
   function persistKeys(){
     try{
       var a=$("#cfgA"),b=$("#cfgB");
       localStorage.setItem("ar_keys",JSON.stringify({
-        aP:a.querySelector(".ai-provider").value,aM:a.querySelector(".ai-model").value,aK:a.querySelector(".ai-key").value,
-        bP:b.querySelector(".ai-provider").value,bM:b.querySelector(".ai-model").value,bK:b.querySelector(".ai-key").value}));
+        aP:a.querySelector(".ai-provider").value,aM:a.querySelector(".ai-model").value,aK:a.querySelector(".ai-key").value,aB:a.querySelector(".ai-base").value,
+        bP:b.querySelector(".ai-provider").value,bM:b.querySelector(".ai-model").value,bK:b.querySelector(".ai-key").value,bB:b.querySelector(".ai-base").value,
+        a:{provider:a.querySelector(".ai-provider").value,model:a.querySelector(".ai-model").value,key:a.querySelector(".ai-key").value,baseURL:a.querySelector(".ai-base").value},
+        b:{provider:b.querySelector(".ai-provider").value,model:b.querySelector(".ai-model").value,key:b.querySelector(".ai-key").value,baseURL:b.querySelector(".ai-base").value}}));
     }catch(e){}
   }
   function restoreKeys(){
     try{var s=JSON.parse(localStorage.getItem("ar_keys")||"null");if(!s)return;
       var a=$("#cfgA"),b=$("#cfgB");
-      a.querySelector(".ai-provider").value=s.aP||"anthropic";a.querySelector(".ai-model").value=s.aM||"claude-haiku-4-5";a.querySelector(".ai-key").value=s.aK||"";
-      b.querySelector(".ai-provider").value=s.bP||"gemini";b.querySelector(".ai-model").value=s.bM||"gemini-2.5-flash";b.querySelector(".ai-key").value=s.bK||"";
+      var sa=s.a||{},sb=s.b||{};
+      a.querySelector(".ai-provider").value=PROVIDERS[sa.provider||s.aP]?sa.provider||s.aP:"anthropic";
+      a.querySelector(".ai-model").value=sa.model||s.aM||"claude-haiku-4-5";
+      a.querySelector(".ai-key").value=sa.key||s.aK||"";
+      a.querySelector(".ai-base").value=sa.baseURL||s.aB||"";
+      b.querySelector(".ai-provider").value=PROVIDERS[sb.provider||s.bP]?sb.provider||s.bP:"gemini";
+      b.querySelector(".ai-model").value=sb.model||s.bM||"gemini-2.5-flash";
+      b.querySelector(".ai-key").value=sb.key||s.bK||"";
+      b.querySelector(".ai-base").value=sb.baseURL||s.bB||"";
     }catch(e){}
+    updateProviderBlock($("#cfgA"),true);
+    updateProviderBlock($("#cfgB"),true);
   }
 
   // ===== 对局主循环 =====
+  function beginGame(){
+    if(activeAbort)activeAbort.abort();
+    activeAbort=new AbortController();
+    gameId++;abortFlag=false;over=false;busy=false;
+    return gameId;
+  }
+  function isActive(id){return id===gameId&&!abortFlag;}
+  function stopGame(){
+    if(activeAbort)activeAbort.abort();
+    abortFlag=true;gameId++;busy=false;over=true;
+    $("#btn-start").disabled=false;$("#btn-stop").disabled=true;$("#btn-card").disabled=true;
+    statusEl.textContent="已停止,可重新开始";
+    log("<b>对局已停止</b>","ar-li-warn");
+  }
+  function setRunningControls(running){
+    $("#btn-start").disabled=running;$("#btn-stop").disabled=!running;
+  }
   async function runByok(){
     var cfg;try{cfg=readCfg("#cfgA");}catch(e){statusEl.textContent=e.message;return;}
-    persistKeys();reset();busy=true;
-    $("#btn-start").disabled=true;$("#btn-stop").disabled=false;
+    persistKeys();var myGame=beginGame();reset();busy=true;setRunningControls(true);
     try{
-      while(!over){
-        if(abortFlag)break;
-        var j=await llmTurn(cfg,BLACK,"你的 AI");
-        if(place(j,BLACK))break;
-        await sleep(350);
+      while(isActive(myGame)&&!over){
+        var mv=await llmTurn(cfg,BLACK,"你的 AI",myGame);
+        if(mv.forfeit){endGame(WHITE);break;}
+        if(!isActive(myGame))break;
+        if(place(mv.j,BLACK))break;
+        await sleep(350,activeAbort&&activeAbort.signal);
+        if(!isActive(myGame))break;
         var m=bestMoveFor(board,WHITE);
         if(place(m,WHITE))break;
         log("擂主落子 "+coordName(m));
       }
     }catch(e){if(String(e.message).indexOf("__abort")<0){statusEl.textContent=e.message;log(escapeHtml(e.message),"ar-li-warn");}}
-    if(abortFlag&&!over){statusEl.textContent="已停止";}
-    busy=false;$("#btn-start").disabled=false;$("#btn-stop").disabled=true;
+    if(isActive(myGame)){busy=false;setRunningControls(false);}
   }
   async function runWatch(){
     var cfgA,cfgB;
     try{cfgA=readCfg("#cfgA");cfgB=readCfg("#cfgB");}catch(e){statusEl.textContent=e.message;return;}
-    persistKeys();reset();busy=true;
-    $("#btn-start").disabled=true;$("#btn-stop").disabled=false;
+    persistKeys();var myGame=beginGame();reset();busy=true;setRunningControls(true);
     try{
-      while(!over){
-        if(abortFlag)break;
-        var j=await llmTurn(cfgA,BLACK,"黑方 AI");
-        if(place(j,BLACK))break;
-        await sleep(400);
-        if(abortFlag)break;
-        var j2=await llmTurn(cfgB,WHITE,"白方 AI");
-        if(place(j2,WHITE))break;
-        await sleep(400);
+      while(isActive(myGame)&&!over){
+        var mvA=await llmTurn(cfgA,BLACK,"黑方 AI",myGame);
+        if(mvA.forfeit){endGame(WHITE);break;}
+        if(!isActive(myGame))break;
+        if(place(mvA.j,BLACK))break;
+        await sleep(400,activeAbort&&activeAbort.signal);
+        if(!isActive(myGame))break;
+        var mvB=await llmTurn(cfgB,WHITE,"白方 AI",myGame);
+        if(mvB.forfeit){endGame(BLACK);break;}
+        if(!isActive(myGame))break;
+        if(place(mvB.j,WHITE))break;
+        await sleep(400,activeAbort&&activeAbort.signal);
       }
     }catch(e){if(String(e.message).indexOf("__abort")<0){statusEl.textContent=e.message;log(escapeHtml(e.message),"ar-li-warn");}}
-    if(abortFlag&&!over){statusEl.textContent="已停止";}
-    busy=false;$("#btn-start").disabled=false;$("#btn-stop").disabled=true;
+    if(isActive(myGame)){busy=false;setRunningControls(false);}
   }
-  function sleep(ms){return new Promise(function(res){setTimeout(res,ms)})}
+  function sleep(ms,signal){return new Promise(function(res,rej){
+    if(signal&&signal.aborted){rej(new Error("__abort"));return;}
+    var t=setTimeout(res,ms);
+    if(signal)signal.addEventListener("abort",function(){clearTimeout(t);rej(new Error("__abort"));},{once:true});
+  })}
 
   // ===== 战报卡 =====
   function drawCard(){
@@ -399,28 +615,30 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
   // ===== 模式切换 / 事件 =====
   function setMode(m){
-    if(busy){abortFlag=true;}
+    if(busy)stopGame();
     mode=m;
     document.querySelectorAll(".ar-tab").forEach(function(t){t.classList.toggle("on",t.dataset.mode===m)});
     $("#cfg").style.display=m==="human"?"none":"block";
     $("#cfgB").style.display=m==="watch"?"block":"none";
     $("#cfgA-title").textContent=m==="watch"?"黑方 AI":"挑战方 AI(执黑)";
     $("#btn-start").textContent=m==="human"?"重新开局":"开始对局";
+    beginGame();
     reset();
+    setRunningControls(false);
     statusEl.textContent=m==="human"?"你执黑先行,点击棋盘落子":"填好配置,点「开始对局」";
   }
   $("#mode-tabs").addEventListener("click",function(e){
     var b=e.target.closest(".ar-tab");if(b)setMode(b.dataset.mode);
   });
   $("#btn-start").addEventListener("click",function(){
-    if(mode==="human"){reset();statusEl.textContent="你执黑先行,点击棋盘落子";}
+    if(mode==="human"){beginGame();reset();setRunningControls(false);statusEl.textContent="你执黑先行,点击棋盘落子";}
     else if(mode==="byok")runByok();
     else runWatch();
   });
-  $("#btn-stop").addEventListener("click",function(){abortFlag=true;$("#btn-stop").disabled=true;});
+  $("#btn-stop").addEventListener("click",stopGame);
   $("#btn-card").addEventListener("click",drawCard);
 
-  buildBoard();restoreKeys();setMode("human");
+  buildBoard();wireProviderUI();restoreKeys();updateProviderBlock($("#cfgA"),true);updateProviderBlock($("#cfgB"),true);setMode("human");
   })();
   </script>
 
