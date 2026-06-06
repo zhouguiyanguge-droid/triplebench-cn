@@ -109,7 +109,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   }
   function reset(){
     board=new Array(225).fill(EMPTY);moves=[];over=false;abortFlag=false;
-    render(-1);logEl.innerHTML='<p class="ar-log-empty">对局进行中…</p>';
+    render(-1);logEl.innerHTML='<p class="ar-log-empty">棋盘已就绪。</p>';
     $("#btn-card").disabled=true;
   }
 
@@ -423,7 +423,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   })();
   </script>
 
-  <style>
+  <style is:global>
     .tb-badge { display:inline-block; background:linear-gradient(90deg,#ea580c,#f59e0b); color:#fff; padding:.3rem .7rem; border-radius:999px; font-weight:700; }
     .tb-arena h1 { margin-bottom:.6rem; }
     .ar-strip { display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; margin:1.4rem 0; }
